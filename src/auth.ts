@@ -1,5 +1,6 @@
 import { betterAuth } from 'better-auth';
 import { prismaAdapter } from 'better-auth/adapters/prisma';
+import { nextCookies } from 'better-auth/next-js';
 import { prisma } from '@/data/prisma';
 
 /**
@@ -30,4 +31,6 @@ export const auth = betterAuth({
     // is the daily digest (ROADMAP feature 5).
     requireEmailVerification: false,
   },
+  // Lets Server Actions set the session cookie. Must stay last in the list.
+  plugins: [nextCookies()],
 });
