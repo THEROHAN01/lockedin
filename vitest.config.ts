@@ -29,6 +29,7 @@ export default defineConfig({
           globals: true,
           environment: 'node',
           include: ['tests/integration/**/*.test.ts'],
+          globalSetup: ['tests/helpers/global-setup.ts'],
           setupFiles: ['tests/helpers/setup-integration.ts'],
           // One fork, files run one at a time: they share a single database and
           // truncate between files, so parallelism here would be cross-talk.

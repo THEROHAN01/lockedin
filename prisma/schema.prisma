@@ -1,0 +1,17 @@
+// Models are added in Phase 2 (T2.1). This file currently establishes the
+// datasource and generator only, so the toolchain and test harness can be
+// verified before any schema exists.
+//
+// See docs/ARCHITECTURE.md §3 for the intended model set and the indexes it
+// requires. Note that src/domain must never import from the generated client,
+// including type-only imports — repositories in src/data map rows to the plain
+// types in src/domain/types.ts. Enforced by eslint.config.mjs.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}

@@ -1,0 +1,29 @@
+# Local Postgres for development and integration tests.
+#
+# Production and preview run on Neon (ADR-003). This exists because integration
+# tests against a local instance are faster and work offline; CI uses a Neon
+# branch. Port 5433 to avoid colliding with a system Postgres on 5432.
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: lockedin-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: lockedin
+      POSTGRES_PASSWORD: lockedin
+      POSTGRES_DB: lockedin
+    ports:
+      - '5433:5432'
+    volumes:
+      - lockedin-pgdata:/var/lib/postgresql/data
+      # Creates the separate test database on first boot, so a test run can
+      # never truncate development data.
+      - ./scripts/init-test-db.sql:/docker-entrypoint-initdb.d/10-test-db.sql:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U lockedin -d lockedin']
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  lockedin-pgdata:
