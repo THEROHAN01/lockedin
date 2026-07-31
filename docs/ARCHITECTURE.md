@@ -428,14 +428,26 @@ Defined once, here, so six route handlers don't each invent a shape.
 
 | Endpoint | Verb | Success |
 |---|---|---|
-| `/api/roadmaps` | `POST` | `201` + created roadmap |
-| `/api/roadmaps` | `GET` | `200` + own roadmaps |
-| `/api/roadmaps/:id` | `GET` | `200` |
-| `/api/roadmaps/:id` | `PATCH` | `200` + updated roadmap |
-| `/api/roadmaps/:id/items` | `POST` | `201` + created items |
+| `/api/roadmaps` | `POST` | `201` + the created roadmap |
+| `/api/roadmaps` | `GET` | `200` + `Roadmap[]`, the caller's own |
+| `/api/roadmaps/:id` | `GET` | `200` + one `Roadmap` |
+| `/api/roadmaps/:id` | `PATCH` | `200` + the updated `Roadmap` |
+| `/api/roadmaps/:id/items` | `POST` | `201` + the created items, in full |
+| `/api/roadmaps/:id/items` | `GET` | `200` + `Array<RoadmapItem & { completed: boolean }>` |
 | `/api/roadmaps/:id/items/:itemId/completion` | `PUT` | `204` |
-| `/api/roadmaps/:id/progress` | `GET` | `200` |
+| `/api/roadmaps/:id/progress` | `GET` | `200` + `Progress`, i.e. `{ completedCount, totalCount, daysElapsed, totalDays }` |
 | `/api/cron/send-daily` | `GET` | `200` + `{ sent, skipped, failed }` |
+
+`GET /api/roadmaps/:id/items` exists because it is otherwise impossible to render
+the roadmap detail screen on a page load: `GET .../progress` returns only
+aggregate counts, so without it the per-item list would be visible exactly once,
+in the response to the upload that created it. The derived `completed` flag lives
+on the response rather than on `RoadmapItem`, because completion is an event and
+the domain type stays a description of the item itself.
+
+Create responses carry the full object rather than an id, uniformly. The client
+needs the fields to render, and one shape across all creates is one fewer thing
+to remember.
 
 **Completion is a subresource, not an action.** `PUT .../completion` rather than `POST .../complete`,
 because the operation is required to be idempotent and `PUT` is idempotent by definition rather than
@@ -452,9 +464,33 @@ confirms the id exists, which turns the API into an id oracle. It is also less c
 `WHERE id = ? AND userId = ?` naturally yields null, whereas distinguishing the two cases needs a
 second unfiltered query.
 
+**Ownership is checked at every level, not just the top one.** `PUT
+.../items/:itemId/completion` must confirm the *item* is in the roadmap, not only
+that the roadmap belongs to the caller. `markItemComplete` enforces this and
+returns `false` on mismatch, which the handler turns into a `404`. Skipping it is
+not merely an access-control hole: `ProgressEvent` carries `roadmapId`
+denormalised so the completed-count query avoids a join, so a mis-scoped pair
+would inflate the progress of a roadmap that never contained the item.
+
 **Status codes.** `401` unauthenticated. `404` missing or not-owned. `400` malformed JSON. `422`
 syntactically valid but failing a business rule — bad `HH:mm`, `endDate` before `startDate`, unknown
 IANA zone, bad CSV rows. `204` for a successful mutation with nothing to return.
+
+**Error codes are a fixed set**, so six handlers do not invent six spellings of
+"not found":
+
+| `code` | Paired with |
+|---|---|
+| `UNAUTHENTICATED` | `401` |
+| `NOT_FOUND` | `404` — missing or not-owned, indistinguishable by design |
+| `MALFORMED_JSON` | `400` |
+| `VALIDATION_FAILED` | `422`, with `details` |
+
+**Request bodies are validated at the boundary, at runtime.** `RoadmapPatch.status`
+is typed to exclude `COMPLETED`, but a TypeScript type is no defence against
+untrusted JSON — `await request.json()` cast to the patch type would let
+`{"status":"COMPLETED"}` straight through. Every handler parses its body with a
+Zod schema before the value is treated as a domain input.
 
 **One error envelope.**
 

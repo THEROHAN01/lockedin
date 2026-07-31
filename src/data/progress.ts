@@ -6,21 +6,38 @@ import { prisma } from './prisma';
  */
 
 /**
- * Idempotent by way of the UNIQUE(itemId, type) constraint: a repeat is a no-op
- * rather than an error, which is what lets the API be a plain idempotent PUT.
+ * Marks an item complete, returning false if the item is not in that roadmap.
+ * Callers translate false into a 404, the same as a missing roadmap.
  *
- * The empty `update` is deliberate — re-marking must not move the original
- * timestamp, which is the thing worth keeping.
+ * The membership check is not optional. ProgressEvent carries `roadmapId`
+ * denormalised so `countCompleted` avoids a join, which means an inconsistent
+ * pair is silently corrupting: `countCompleted(roadmapId)` would include an item
+ * that roadmap never contained, inflating a stranger's progress. Verifying the
+ * pair here rather than in each caller makes the invariant impossible to violate
+ * through this module.
+ *
+ * Idempotent by way of UNIQUE(itemId, type): a repeat is a no-op rather than an
+ * error, which is what lets the API be a plain idempotent PUT. The empty
+ * `update` is deliberate — re-marking must not move the original timestamp,
+ * which is the thing worth keeping.
  */
 export async function markItemComplete(
   roadmapId: string,
   itemId: string,
-): Promise<void> {
+): Promise<boolean> {
+  const item = await prisma.roadmapItem.findFirst({
+    where: { id: itemId, roadmapId },
+    select: { id: true },
+  });
+  if (item === null) return false;
+
   await prisma.progressEvent.upsert({
     where: { itemId_type: { itemId, type: 'COMPLETED' } },
     create: { roadmapId, itemId, type: 'COMPLETED' },
     update: {},
   });
+
+  return true;
 }
 
 /**

@@ -1,4 +1,3 @@
-import { Prisma } from '@prisma/client';
 import type { Roadmap as RoadmapRow, RoadmapItem as ItemRow } from '@prisma/client';
 import { utcDateToLocalDate } from '@/domain/dates';
 import type { Roadmap, RoadmapItem } from '@/domain/types';
@@ -33,18 +32,4 @@ export function toRoadmapItem(row: ItemRow): RoadmapItem {
     difficulty: row.difficulty,
     position: row.position,
   };
-}
-
-/**
- * A unique-constraint violation.
- *
- * Both of this schema's unique constraints exist to make a duplicate a normal,
- * expected outcome rather than an error — a second send in the same local day,
- * or an item marked complete twice. Callers translate this into a boolean.
- */
-export function isUniqueViolation(error: unknown): boolean {
-  return (
-    error instanceof Prisma.PrismaClientKnownRequestError &&
-    error.code === 'P2002'
-  );
 }

@@ -48,6 +48,41 @@ describe('markItemComplete', () => {
   });
 });
 
+describe('item-in-roadmap scoping', () => {
+  it('confirms the write when the item really is in the roadmap', async () => {
+    const { roadmap, items } = await seeded();
+    expect(await markItemComplete(roadmap.id, items[0]!.id)).toBe(true);
+  });
+
+  it('refuses an item belonging to a different roadmap', async () => {
+    // Without this the endpoint is an IDOR: name a roadmap you own alongside
+    // any item id and the pair gets written. Worse, countCompleted filters
+    // events by roadmapId, so the foreign item would inflate the progress of a
+    // roadmap it was never part of.
+    const mine = await seeded();
+    const theirs = await seeded();
+    const foreignItem = theirs.items[0]!;
+
+    expect(await markItemComplete(mine.roadmap.id, foreignItem.id)).toBe(false);
+
+    expect(await countCompleted(mine.roadmap.id)).toBe(0);
+    expect(await countCompleted(theirs.roadmap.id)).toBe(0);
+  });
+
+  it('writes no event at all for a foreign item', async () => {
+    const mine = await seeded();
+    const theirs = await seeded();
+    await markItemComplete(mine.roadmap.id, theirs.items[0]!.id);
+
+    expect(await prisma.progressEvent.count()).toBe(0);
+  });
+
+  it('refuses an item id that does not exist', async () => {
+    const { roadmap } = await seeded();
+    expect(await markItemComplete(roadmap.id, 'no-such-item')).toBe(false);
+  });
+});
+
 describe('the unique constraint backing idempotency', () => {
   it('is enforced by the database, not only by application code', async () => {
     const { roadmap, items } = await seeded();

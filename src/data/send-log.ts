@@ -1,6 +1,6 @@
 import { localDateToUtcDate, utcDateToLocalDate } from '@/domain/dates';
 import type { LocalDate } from '@/domain/types';
-import { isUniqueViolation } from './mappers';
+import { isUniqueViolation } from './errors';
 import { prisma } from './prisma';
 
 /** Identifies one roadmap-day. */
