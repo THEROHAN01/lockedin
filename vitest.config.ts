@@ -1,0 +1,42 @@
+import { defineConfig } from 'vitest/config';
+import { fileURLToPath } from 'node:url';
+
+const alias = {
+  '@': fileURLToPath(new URL('./src', import.meta.url)),
+};
+
+export default defineConfig({
+  test: {
+    globals: true,
+    projects: [
+      {
+        // Pure domain logic. No database, no network, no clock.
+        // If a test here needs any of those, the code under test is in the wrong layer.
+        resolve: { alias },
+        test: {
+          name: 'unit',
+          globals: true,
+          environment: 'node',
+          include: ['tests/unit/**/*.test.ts'],
+        },
+      },
+      {
+        // Repositories, route handlers, cron orchestrator. Real Postgres.
+        // Serialised: these share one database and truncate between files.
+        resolve: { alias },
+        test: {
+          name: 'integration',
+          globals: true,
+          environment: 'node',
+          include: ['tests/integration/**/*.test.ts'],
+          setupFiles: ['tests/helpers/setup-integration.ts'],
+          // One fork, files run one at a time: they share a single database and
+          // truncate between files, so parallelism here would be cross-talk.
+          pool: 'forks',
+          poolOptions: { forks: { singleFork: true } },
+          testTimeout: 20_000,
+        },
+      },
+    ],
+  },
+});

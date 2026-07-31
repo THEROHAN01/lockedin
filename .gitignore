@@ -1,0 +1,23 @@
+node_modules/
+.next/
+out/
+build/
+dist/
+
+# env
+.env
+.env.local
+.env*.local
+!.env.example
+
+# testing
+coverage/
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# editor / os
+.DS_Store
+.idea/
+.vscode/
