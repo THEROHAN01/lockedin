@@ -1,4 +1,8 @@
-import { renderToStaticMarkup } from 'react-dom/server';
+// Deliberately the `.edge` subpath. Next's App Router build refuses a bare
+// `react-dom/server` import, on the reasonable assumption that it signals a
+// component rendered the wrong way — but this is not a component, it is a pure
+// string-producing function for an email body, reached only from a route handler.
+import { renderToStaticMarkup } from 'react-dom/server.edge';
 import { EMAIL, PALETTE } from '@/styles/palette';
 import type { DailyDigest, Difficulty, DigestItem } from '@/domain/types';
 

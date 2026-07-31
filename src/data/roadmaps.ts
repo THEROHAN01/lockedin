@@ -102,6 +102,27 @@ export async function listActiveRoadmaps(): Promise<Roadmap[]> {
   return rows.map(toRoadmap);
 }
 
+/** A roadmap plus where its digest should go. */
+export interface ActiveRoadmap extends Roadmap {
+  recipient: string;
+}
+
+/**
+ * The sweep's input: every ACTIVE roadmap with its owner's address, in one query.
+ *
+ * The join matters. Looking the recipient up per roadmap would add a round trip
+ * to every roadmap on every one of the 96 daily ticks.
+ */
+export async function listActiveRoadmapsWithRecipient(): Promise<ActiveRoadmap[]> {
+  const rows = await prisma.roadmap.findMany({
+    where: { status: 'ACTIVE' },
+    orderBy: { createdAt: 'asc' },
+    include: { user: { select: { email: true } } },
+  });
+
+  return rows.map((row) => ({ ...toRoadmap(row), recipient: row.user.email }));
+}
+
 /**
  * A system-initiated status change, with no ownership check: used when the sweep
  * finds every item done. Requests go through updateOwnedRoadmap instead.

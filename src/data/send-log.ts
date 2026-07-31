@@ -37,6 +37,22 @@ export async function recordSend(
 }
 
 /**
+ * Gives today's claim back after a failed send.
+ *
+ * The claim is taken before the send so two overlapping invocations cannot both
+ * deliver. That ordering means a failure has to release it, or the user silently
+ * loses the whole day rather than being retried on the next tick.
+ */
+export async function releaseSend(
+  roadmapId: string,
+  localDate: LocalDate,
+): Promise<void> {
+  await prisma.sendLog.deleteMany({
+    where: { roadmapId, localDate: localDateToUtcDate(localDate) },
+  });
+}
+
+/**
  * Which roadmap-days have already been sent, for the whole sweep in one query.
  *
  * Due-ness stays true for the rest of the roadmap's local day, so this is asked
