@@ -1,0 +1,105 @@
+/*
+ * ============================================================================
+ * THIS IS THE ONLY FILE IN THE REPO ALLOWED TO CONTAIN A HEX COLOUR LITERAL.
+ * Enforced by `pnpm lint:tokens`. See docs/ARCHITECTURE.md §6 and §8.
+ *
+ * Exception: src/styles/palette.ts mirrors the four base values for the email
+ * template, because email clients do not support var() or color-mix(). A unit
+ * test pins the two files together so they cannot drift.
+ * ============================================================================
+ *
+ * Retheming the entire product means editing the four values in --- PALETTE ---
+ * below. Everything else is derived from them with color-mix().
+ */
+
+/* ─── PALETTE — the only four source colours ─────────────────────────────── */
+:root {
+  --lk-green: #08cb00;
+  --lk-olive: #253900;
+  --lk-black: #000000;
+  --lk-paper: #eeeeee;
+}
+
+/* ─── Font stacks ───────────────────────────────────────────────────────────
+ * The --font-*-src variables are injected by next/font in app/layout.tsx.
+ */
+:root {
+  --font-display: var(--font-display-src), ui-monospace, monospace;
+  --font-body: var(--font-body-src), 'Iowan Old Style', Georgia, serif;
+  --font-mono: var(--font-mono-src), ui-monospace, Consolas, monospace;
+  --font-heading: var(--font-display);
+}
+
+/* ─── Light theme (default) ─────────────────────────────────────────────────
+ * Contrast against --bg #eeeeee:
+ *   --ink    #000000  21.00:1  AAA
+ *   --accent #253900  10.70:1  AAA
+ * --accent-vivid (#08cb00) is 1.88:1 here and is therefore NEVER used for
+ * text in this theme — fills, borders and dots only.
+ */
+:root,
+:root[data-theme='light'] {
+  --bg: var(--lk-paper);
+  --ink: var(--lk-black);
+  --accent: var(--lk-olive);
+  --accent-ink: var(--lk-paper);
+}
+
+/* ─── Dark theme ────────────────────────────────────────────────────────────
+ * Contrast against --bg #000000:
+ *   --ink    #eeeeee  18.10:1  AAA
+ *   --accent #08cb00   9.65:1  AAA
+ * Here the vivid green IS text-safe, so --accent and --accent-vivid coincide.
+ */
+:root[data-theme='dark'] {
+  --bg: var(--lk-black);
+  --ink: var(--lk-paper);
+  --accent: var(--lk-green);
+  --accent-ink: var(--lk-black);
+}
+
+/* ─── Role tokens ───────────────────────────────────────────────────────────
+ * --accent-vivid is the same in both themes on purpose: it is the brand green,
+ * and it is only ever applied to non-text surfaces where contrast rules do not
+ * apply. Use --accent for anything a user has to read.
+ */
+:root {
+  --accent-vivid: var(--lk-green);
+
+  /* Surfaces */
+  --bg-surface: color-mix(in srgb, var(--bg) 94%, var(--ink));
+  --bg-surface-hover: color-mix(in srgb, var(--bg) 88%, var(--ink));
+  --code-bg: color-mix(in srgb, var(--bg) 91%, var(--ink));
+  --header-bg: color-mix(in srgb, var(--bg) 94%, transparent);
+  --overlay-bg: color-mix(in srgb, var(--lk-black) 62%, transparent);
+
+  /* Text */
+  --ink-soft: color-mix(in srgb, var(--ink) 72%, var(--bg));
+  --ink-mute: color-mix(in srgb, var(--ink) 48%, var(--bg));
+
+  /* Rules and borders */
+  --rule: var(--ink);
+  --rule-soft: color-mix(in srgb, var(--ink) 20%, var(--bg));
+  --paper-rule: color-mix(in srgb, var(--ink) 9%, var(--bg));
+  --dot-color: var(--paper-rule);
+
+  /* Accent derivations */
+  --accent-hover: color-mix(in srgb, var(--accent) 80%, var(--ink));
+  --accent-tint: color-mix(in srgb, var(--accent-vivid) 12%, var(--bg));
+  --accent-tint-strong: color-mix(in srgb, var(--accent-vivid) 26%, var(--bg));
+
+  /* Status — difficulty and completion. Non-text usage only. */
+  --status-done: var(--accent-vivid);
+  --status-pending: color-mix(in srgb, var(--ink) 34%, var(--bg));
+  --difficulty-easy: var(--accent-vivid);
+  --difficulty-medium: color-mix(in srgb, var(--accent-vivid) 55%, var(--ink));
+  --difficulty-hard: var(--ink);
+
+  /* Blueprint rule: shadows are hard offsets, never blurred. */
+  --shadow-hard: 3px 3px 0 var(--ink);
+  --shadow-hard-lg: 5px 5px 0 var(--ink);
+
+  /* Layout */
+  --container-max: 1100px;
+  --header-height: 64px;
+}

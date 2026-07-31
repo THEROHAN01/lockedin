@@ -1,0 +1,45 @@
+@import 'tailwindcss';
+@import '../src/styles/tokens.css';
+@import '../src/styles/base.css';
+
+/*
+ * Expose the semantic tokens as Tailwind utilities: bg-bg, text-ink,
+ * border-rule-soft, font-display, and so on.
+ *
+ * `@theme inline` emits utilities that reference the custom property rather
+ * than its resolved value, which is what makes flipping [data-theme] retheme
+ * every utility at runtime instead of only at build time.
+ */
+@theme inline {
+  --color-bg: var(--bg);
+  --color-bg-surface: var(--bg-surface);
+  --color-bg-surface-hover: var(--bg-surface-hover);
+  --color-code-bg: var(--code-bg);
+
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-ink-mute: var(--ink-mute);
+
+  --color-accent: var(--accent);
+  --color-accent-vivid: var(--accent-vivid);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-tint: var(--accent-tint);
+
+  --color-rule: var(--rule);
+  --color-rule-soft: var(--rule-soft);
+
+  --color-status-done: var(--status-done);
+  --color-status-pending: var(--status-pending);
+  --color-difficulty-easy: var(--difficulty-easy);
+  --color-difficulty-medium: var(--difficulty-medium);
+  --color-difficulty-hard: var(--difficulty-hard);
+
+  --font-display: var(--font-display);
+  --font-body: var(--font-body);
+  --font-mono: var(--font-mono);
+
+  --radius-none: 0;
+  --shadow-hard: var(--shadow-hard);
+  --shadow-hard-lg: var(--shadow-hard-lg);
+}
