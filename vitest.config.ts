@@ -2,6 +2,8 @@ import { defineConfig } from 'vitest/config';
 import { fileURLToPath } from 'node:url';
 
 const alias = {
+  // Longest prefix first: '@/' would otherwise swallow '@app/'.
+  '@app': fileURLToPath(new URL('./app', import.meta.url)),
   '@': fileURLToPath(new URL('./src', import.meta.url)),
 };
 

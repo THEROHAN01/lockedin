@@ -69,6 +69,21 @@ function requirePart(parts: Record<string, string>, key: string): string {
 }
 
 /**
+ * Whether a string names a time zone this runtime knows.
+ *
+ * Worth checking at the boundary: an unknown zone is accepted silently by the
+ * database and then throws deep inside the cron sweep, days later.
+ */
+export function isValidTimeZone(timeZone: string): boolean {
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * A `LocalDate` as the UTC-midnight instant Postgres stores for a `date` column.
  *
  * Pure — this reads no clock, it only reinterprets a calendar value. Used by the
