@@ -32,6 +32,7 @@ enum ProgressEventType {
 /// Shaped to Better Auth's core user model (ADR-004) so its adapter can own
 /// Session/Account/Verification without reshaping this table. User records live
 /// in our own database rather than a third-party silo, which is the point.
+
 model User {
   id            String   @id @default(cuid())
   name          String
@@ -42,6 +43,9 @@ model User {
   updatedAt     DateTime @updatedAt
 
   roadmaps Roadmap[]
+
+  sessions Session[]
+  accounts Account[]
 
   @@map("user")
 }
@@ -81,6 +85,7 @@ model Roadmap {
 
 /// Deliberately generic — no LeetCode-specific columns — so a future
 /// AI-generated roadmap or a non-LeetCode habit populates the same shape.
+
 model RoadmapItem {
   id        String @id @default(cuid())
   roadmapId String
@@ -96,13 +101,19 @@ model RoadmapItem {
   roadmap        Roadmap         @relation(fields: [roadmapId], references: [id], onDelete: Cascade)
   progressEvents ProgressEvent[]
 
-  /// Serves "outstanding items ordered by position" without a per-call sort.
-  @@index([roadmapId, position])
+  /// Serves "outstanding items ordered by position" without a per-call sort, and
+  /// makes a position collision loud rather than silent. appendItems reads
+  /// MAX(position) then inserts, so two overlapping uploads can read the same
+  /// maximum; without this they would both succeed and scramble the roadmap's
+  /// order. A transaction would not help — READ COMMITTED does not block a
+  /// concurrent read-then-write pair — so the constraint plus a retry is the fix.
+  @@unique([roadmapId, position])
   @@map("roadmap_item")
 }
 
 /// Append-only. Completion is derived, never stored as a boolean, so a future
 /// XP/level/mission layer reads history rather than re-deriving it.
+
 model ProgressEvent {
   id        String @id @default(cuid())
   roadmapId String
@@ -114,9 +125,11 @@ model ProgressEvent {
   roadmap Roadmap     @relation(fields: [roadmapId], references: [id], onDelete: Cascade)
   item    RoadmapItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
 
-  /// Makes marking an item complete twice a no-op instead of a double count.
+  /// Makes marking an item complete twice a no-op instead of a double count, and
+  /// serves listOutstandingItems' correlated anti-join, which keys on itemId.
   @@unique([itemId, type])
-  /// Serves the completed-count query; the unique index above does not.
+  /// Serves the completed-count aggregate; the unique index above does not,
+  /// because roadmapId never appears in that query's predicate.
   @@index([roadmapId, type])
   @@map("progress_event")
 }
@@ -127,6 +140,7 @@ model ProgressEvent {
 /// local day, so without the unique constraint below a user would be mailed 96
 /// times. It is enforced by the database rather than an application check
 /// because two overlapping invocations would both pass an `if`.
+
 model SendLog {
   id        String @id @default(cuid())
   roadmapId String
@@ -143,4 +157,52 @@ model SendLog {
 
   @@unique([roadmapId, localDate])
   @@map("send_log")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([token])
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
 }

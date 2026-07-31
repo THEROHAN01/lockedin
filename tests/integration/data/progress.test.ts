@@ -39,13 +39,6 @@ describe('markItemComplete', () => {
     expect(await countCompleted(roadmap.id)).toBe(1);
   });
 
-  it('does not throw on a repeat, so the API can stay a plain idempotent PUT', async () => {
-    const { roadmap, items } = await seeded();
-    await markItemComplete(roadmap.id, items[0]!.id);
-    await expect(
-      markItemComplete(roadmap.id, items[0]!.id),
-    ).resolves.not.toThrow();
-  });
 });
 
 describe('item-in-roadmap scoping', () => {

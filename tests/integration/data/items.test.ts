@@ -96,6 +96,46 @@ describe('listOutstandingItems', () => {
   });
 });
 
+describe('concurrent appends', () => {
+  it('gives every item a distinct position under a double submit', async () => {
+    // appendItems reads MAX(position) and then inserts. Two overlapping calls
+    // can read the same maximum. This needs only two concurrent requests — a
+    // double-click or a client retry after a timeout — so it is a correctness
+    // gap rather than a scale problem. Colliding positions make
+    // selectItemsForToday's "first N by position" non-deterministic.
+    const user = await makeUser();
+    const roadmap = await makeRoadmap(user.id);
+
+    await Promise.all([
+      appendItems(roadmap.id, [
+        { title: 'A', url: 'https://example.com/a', difficulty: 'EASY' },
+      ]),
+      appendItems(roadmap.id, [
+        { title: 'B', url: 'https://example.com/b', difficulty: 'EASY' },
+      ]),
+    ]);
+
+    const all = await listItems(roadmap.id);
+    expect(all).toHaveLength(2);
+    expect(new Set(all.map((i) => i.position)).size).toBe(2);
+  });
+
+  it('rejects a duplicate position outright, so corruption is impossible', async () => {
+    const { roadmap } = await roadmapWithItems();
+    await expect(
+      prisma.roadmapItem.create({
+        data: {
+          roadmapId: roadmap.id,
+          title: 'Collides',
+          url: 'https://example.com/collides',
+          difficulty: 'EASY',
+          position: 0,
+        },
+      }),
+    ).rejects.toThrow();
+  });
+});
+
 describe('cascade', () => {
   it('deletes items with their roadmap', async () => {
     const { roadmap } = await roadmapWithItems();
