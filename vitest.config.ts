@@ -7,6 +7,11 @@ const alias = {
   '@': fileURLToPath(new URL('./src', import.meta.url)),
 };
 
+// tsconfig sets jsx: preserve for Next, which esbuild cannot execute. The email
+// template is .tsx and is rendered in tests, so transform it automatically.
+// Must be declared per project — a root-level esbuild option does not propagate.
+const esbuild = { jsx: 'automatic' } as const;
+
 export default defineConfig({
   test: {
     globals: true,
@@ -15,6 +20,7 @@ export default defineConfig({
         // Pure domain logic. No database, no network, no clock.
         // If a test here needs any of those, the code under test is in the wrong layer.
         resolve: { alias },
+        esbuild,
         test: {
           name: 'unit',
           globals: true,
@@ -26,6 +32,7 @@ export default defineConfig({
         // Repositories, route handlers, cron orchestrator. Real Postgres.
         // Serialised: these share one database and truncate between files.
         resolve: { alias },
+        esbuild,
         test: {
           name: 'integration',
           globals: true,

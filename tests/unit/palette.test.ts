@@ -92,6 +92,31 @@ describe('palette contrast', () => {
 });
 
 /**
+ * tokens.css and palette.ts hold the same four values in two representations,
+ * because email clients support neither var() nor color-mix(). This is what stops
+ * them drifting: change one and this fails.
+ */
+describe('palette.ts mirrors tokens.css', () => {
+  it('agrees on all four values', async () => {
+    const { PALETTE } = await import('@/styles/palette');
+    expect(PALETTE.green).toBe(GREEN);
+    expect(PALETTE.olive).toBe(OLIVE);
+    expect(PALETTE.black).toBe(BLACK);
+    expect(PALETTE.paper).toBe(PAPER);
+  });
+
+  it('never uses the vivid green for email text', async () => {
+    const { EMAIL, PALETTE } = await import('@/styles/palette');
+    for (const role of ['ink', 'inkSoft', 'accent'] as const) {
+      expect(EMAIL[role]).not.toBe(PALETTE.green);
+      expect(contrast(EMAIL[role], EMAIL.background)).toBeGreaterThanOrEqual(
+        AA_TEXT,
+      );
+    }
+  });
+});
+
+/**
  * The contrast assertions above check the values. This checks that the
  * stylesheet actually uses them that way — the failure mode is a rule that
  * fills with --accent-vivid and then puts --accent-ink on top, which is
