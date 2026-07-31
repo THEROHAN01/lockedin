@@ -1,11 +1,8 @@
-// Models are added in Phase 2 (T2.1). This file currently establishes the
-// datasource and generator only, so the toolchain and test harness can be
-// verified before any schema exists.
+// See docs/ARCHITECTURE.md §3 for why the model looks like this.
 //
-// See docs/ARCHITECTURE.md §3 for the intended model set and the indexes it
-// requires. Note that src/domain must never import from the generated client,
-// including type-only imports — repositories in src/data map rows to the plain
-// types in src/domain/types.ts. Enforced by eslint.config.mjs.
+// src/domain must never import from the generated client, including type-only
+// imports — repositories in src/data map rows to the plain types in
+// src/domain/types.ts. Enforced by eslint.config.mjs.
 
 generator client {
   provider = "prisma-client-js"
@@ -14,4 +11,136 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum RoadmapStatus {
+  ACTIVE
+  COMPLETED
+  ARCHIVED
+}
+
+enum ProgressEventType {
+  COMPLETED
+}
+
+/// Shaped to Better Auth's core user model (ADR-004) so its adapter can own
+/// Session/Account/Verification without reshaping this table. User records live
+/// in our own database rather than a third-party silo, which is the point.
+model User {
+  id            String   @id @default(cuid())
+  name          String
+  email         String   @unique
+  emailVerified Boolean  @default(false)
+  image         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  roadmaps Roadmap[]
+
+  @@map("user")
+}
+
+model Roadmap {
+  id     String @id @default(cuid())
+  userId String
+
+  name String
+
+  /// Calendar dates, not instants: @db.Date so the database cannot silently
+  /// carry a time component that would break day arithmetic.
+  startDate DateTime @db.Date
+  endDate   DateTime @db.Date
+
+  /// Wall-clock "HH:mm" in `timezone`. A send time without a zone is meaningless.
+  sendTimeLocal String
+  /// IANA zone, e.g. "Asia/Kolkata".
+  timezone      String
+
+  status RoadmapStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items          RoadmapItem[]
+  progressEvents ProgressEvent[]
+  sendLogs       SendLog[]
+
+  /// status: filters the cron sweep. userId: every list and ownership check.
+  /// Postgres does not index foreign keys automatically.
+  @@index([status])
+  @@index([userId])
+  @@map("roadmap")
+}
+
+/// Deliberately generic — no LeetCode-specific columns — so a future
+/// AI-generated roadmap or a non-LeetCode habit populates the same shape.
+model RoadmapItem {
+  id        String @id @default(cuid())
+  roadmapId String
+
+  title      String
+  url        String
+  difficulty Difficulty
+  /// Position within the roadmap, 0-based. Ordering is the roadmap's order.
+  position   Int
+
+  createdAt DateTime @default(now())
+
+  roadmap        Roadmap         @relation(fields: [roadmapId], references: [id], onDelete: Cascade)
+  progressEvents ProgressEvent[]
+
+  /// Serves "outstanding items ordered by position" without a per-call sort.
+  @@index([roadmapId, position])
+  @@map("roadmap_item")
+}
+
+/// Append-only. Completion is derived, never stored as a boolean, so a future
+/// XP/level/mission layer reads history rather than re-deriving it.
+model ProgressEvent {
+  id        String @id @default(cuid())
+  roadmapId String
+  itemId    String
+
+  type       ProgressEventType
+  occurredAt DateTime          @default(now())
+
+  roadmap Roadmap     @relation(fields: [roadmapId], references: [id], onDelete: Cascade)
+  item    RoadmapItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  /// Makes marking an item complete twice a no-op instead of a double count.
+  @@unique([itemId, type])
+  /// Serves the completed-count query; the unique index above does not.
+  @@index([roadmapId, type])
+  @@map("progress_event")
+}
+
+/// Exists for idempotency, and doubles as an audit trail.
+///
+/// The cron polls every 15 minutes and due-ness stays true for the rest of the
+/// local day, so without the unique constraint below a user would be mailed 96
+/// times. It is enforced by the database rather than an application check
+/// because two overlapping invocations would both pass an `if`.
+model SendLog {
+  id        String @id @default(cuid())
+  roadmapId String
+
+  /// The *roadmap's* local date, which is what makes "once a day" mean once per
+  /// the user's day rather than once per UTC day.
+  localDate DateTime @db.Date
+  /// The quota is recomputed every send and never persisted, so this is the only
+  /// record of what the pacing engine decided on a given day.
+  itemCount Int
+  sentAt    DateTime @default(now())
+
+  roadmap Roadmap @relation(fields: [roadmapId], references: [id], onDelete: Cascade)
+
+  @@unique([roadmapId, localDate])
+  @@map("send_log")
 }

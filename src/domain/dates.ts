@@ -69,6 +69,23 @@ function requirePart(parts: Record<string, string>, key: string): string {
 }
 
 /**
+ * A `LocalDate` as the UTC-midnight instant Postgres stores for a `date` column.
+ *
+ * Pure — this reads no clock, it only reinterprets a calendar value. Used by the
+ * data layer, which owns the database representation; the domain itself never
+ * handles instants for calendar values.
+ */
+export function localDateToUtcDate(date: LocalDate): Date {
+  return new Date(toUtcMidnight(date));
+}
+
+/** The inverse: a UTC-midnight `date` column value back to a `LocalDate`. */
+export function utcDateToLocalDate(instant: Date): LocalDate {
+  const iso = instant.toISOString();
+  return iso.slice(0, iso.indexOf('T'));
+}
+
+/**
  * Days from `from` to `to` counting both ends, so a single day is 1.
  *
  * Goes non-positive once `to` is in the past. Callers floor it — the pacing rule

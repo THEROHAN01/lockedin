@@ -30,6 +30,24 @@ export interface RoadmapItem {
   position: number;
 }
 
+export type RoadmapStatus = 'ACTIVE' | 'COMPLETED' | 'ARCHIVED';
+
+/**
+ * A time-boxed plan. Note the absence of any schedule: no item is assigned to a
+ * date, so these dates can change freely and the next email simply reflects them.
+ */
+export interface Roadmap {
+  id: string;
+  userId: string;
+  name: string;
+  startDate: LocalDate;
+  endDate: LocalDate;
+  sendTimeLocal: LocalTime;
+  /** IANA zone, e.g. "Asia/Kolkata". */
+  timezone: string;
+  status: RoadmapStatus;
+}
+
 /** An item parsed from an upload but not yet persisted, so it has no id. */
 export interface ParsedItem {
   title: string;
