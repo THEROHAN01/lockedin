@@ -203,4 +203,199 @@ specifically), Alternatives considered, Consequences.
   advantage over pnpm here. Yarn (Berry/PnP) — comparable but adds PnP
   compatibility friction with some tooling.
 - **Consequences:** Contributors need pnpm installed locally; a minor,
-  well-known constraint for a JS/TS project.
+  well-known constraint for a JS/TS project. Note that pnpm 11 requires Node
+  22.13+, so the repo pins pnpm 10 via `packageManager` to stay usable on Node 20.
+
+---
+
+## ADR-009: n8n rejected as the scheduling and notification layer
+
+- **Status:** Accepted (rejected alternative)
+- **Context:** ADR-006 chose a Vercel Cron polling loop now and Inngest later,
+  but never recorded why a workflow-automation tool was not used instead. n8n is
+  the most obvious such tool and the question came up, so the reasoning is
+  written down here rather than re-litigated later.
+- **Decision:** n8n is **not** used for scheduling or for composing/sending the
+  daily email. It remains a reasonable option as an *integration layer the app
+  calls* for future third-party channels, and as a throwaway tool for validating
+  the nag loop before building anything.
+- **Why (for this product specifically):**
+  - **It only covers one of the MVP's features.** n8n can do "cron → query →
+    compose → send". It cannot do sign-in, create roadmap, upload questions,
+    configure, view progress, or mark complete. So it is not an alternative to
+    the Next.js app — it is a second system alongside it, which inverts ADR-007's
+    reason for choosing Vercel ("least infra to operate").
+  - **It breaks the type chain ADR-001 and ADR-003 were chosen for.** Problem
+    selection, progress maths and quota logic are domain rules. In n8n they live
+    in visual nodes and inline JS, outside TypeScript and outside Prisma's
+    generated types. Rename a column and the app fails to compile while the n8n
+    workflow keeps running and sends a broken email at 07:00 — the exact failure
+    mode ADR-001 names.
+  - **It defeats ADR-005's rationale.** Resend was chosen so the template is JSX
+    in the repo. n8n sending the mail means either hand-maintained HTML in a node
+    or calling back into the app to render — at which point the app is doing the
+    work anyway.
+  - **No preview environment.** ADR-003 and ADR-007 pair Neon branches with
+    per-PR previews. n8n workflows are JSON in n8n's own database; there is no
+    per-PR preview and diffing a workflow in review is materially worse than
+    diffing a function.
+- **Alternatives considered:** n8n owning only the schedule, with the app
+  rendering and sending — still needs n8n hosted and still splits "when" from
+  "what". Rejected. n8n as an integration layer behind `NotificationChannel` for
+  WhatsApp/Twitter later — **not rejected**; its prebuilt connectors are a genuine
+  saving, and that placement respects the seam.
+- **Consequences:** Scheduling stays in the app, which is where the type safety
+  and the tests are. If a future channel needs awkward third-party glue, n8n can
+  sit behind the notification seam without revisiting this decision. Note n8n is
+  under the Sustainable Use License, not an OSI-approved licence — fine for the
+  internal uses above, worth knowing before it becomes load-bearing.
+
+---
+
+## ADR-010: Design system — Blueprint aesthetic, with a specified palette
+
+- **Status:** Accepted (locked for MVP)
+- **Context:** ADR-002 chose Tailwind and shadcn/ui without settling on a visual
+  language. A technical/academic aesthetic was chosen, and a four-colour palette
+  was specified externally: `#08CB00`, `#253900`, `#000000`, `#EEEEEE`. The
+  requirement was explicit: do not hardcode colours, keep them configurable.
+- **Decision:** The Blueprint aesthetic — radius 0, hard offset shadows never
+  blurred, VT323 headings, Source Serif 4 body, JetBrains Mono for technical text
+  — with the specified palette as the only colour source. `src/styles/tokens.css`
+  holds those four values and derives everything else with `color-mix()`;
+  `scripts/check-tokens.sh` fails the build on a hex literal anywhere else.
+  **shadcn/ui adoption is deferred**, following the same "accepted, deferred"
+  pattern as ADR-006.
+- **Why:** Retheming has to mean editing four values in one file, which only
+  holds if the rule is enforced rather than remembered — hence the grep guard,
+  which is verified in both directions. shadcn is deferred because the MVP's
+  frontend is a throwaway harness for driving the API; a component library is
+  worth adopting when the real UI is built, and ADR-002's reasoning for choosing
+  it still stands then.
+- **Two deliberate deviations from stock Blueprint**, both because the palette
+  was specified: the accent is green rather than blueprint blue, and the dark
+  background is pure black rather than `#0a0d1a`.
+- **One accessibility constraint the palette forces.** `#08CB00` on `#EEEEEE`
+  measures **1.88:1**, far below the 4.5:1 text minimum. The accent is therefore
+  split by role: `--accent` is text-safe per theme (olive on light, green on
+  dark) and `--accent-vivid` is the brand green restricted to fills, borders and
+  status dots. `tests/unit/palette.test.ts` reads `tokens.css` rather than
+  restating values and asserts the split holds; it caught a real contrast bug on
+  its first run.
+- **Alternatives considered:** Using the green uniformly — rejected, it is
+  unreadable as text on the light background. Adding a fifth muted grey —
+  rejected, secondary text uses the olive instead so the palette stays at four.
+  Adopting shadcn now — rejected as premature for a harness.
+- **Consequences:** A second file, `src/styles/palette.ts`, is also permitted hex,
+  because email clients support neither `var()` nor `color-mix()`. A test pins the
+  two representations together so they cannot drift.
+
+---
+
+## ADR-011: Pacing — rate-based, recomputed at send time, nothing persisted
+
+- **Status:** Accepted (locked for MVP)
+- **Context:** ROADMAP feature 5 says a daily email arrives per roadmap, but not
+  what it contains when the user falls behind. Three shapes were considered:
+  a fixed calendar schedule assigned at creation, a "next unsolved" queue, and a
+  rate-based quota.
+- **Decision:** Rate-based: `ceil(remaining / daysLeft)` with `daysLeft`
+  inclusive of today, floored at 1 once the end date passes and capped at 5.
+  **Computed on every send; nothing is persisted.** No schedule table, no item is
+  ever assigned to a date. `endDate` is a goal rather than a wall — nagging
+  continues past it until every item is done.
+- **Why:** Because nothing is precomputed, `startDate`, `endDate` and the item
+  list stay freely editable and the next email simply reflects current state.
+  Persisting a schedule would mean invalidating and rebuilding it on every edit.
+  The `remaining / daysLeft` form spreads a deficit over the whole remaining
+  period, so ignoring the email for four days raises the daily load from 1 to 2
+  rather than presenting a punishing catch-up bill.
+- **Alternatives considered:** A cumulative pace line
+  (`ceil(total × elapsed / totalDays) − completed`) — mathematically tidier and
+  never lets debt accumulate silently, but a four-day lapse produces a six-problem
+  email, which reads as punishment. Rejected. A fixed schedule — rejected because
+  editing dates would require rebuilding it. A next-unsolved queue — rejected as
+  too forgiving; it makes falling behind invisible.
+- **Consequences:** The daily email carries a **list**, not one problem, which
+  changed ROADMAP feature 5. The cap of 5 exists because a twenty-problem email is
+  noise rather than a nudge, and it means `SendLog.itemCount` is the only
+  historical record of what the engine decided on a given day. `computeDailyQuota`
+  takes no `cap` parameter: nothing in the schema configures it, so an overridable
+  argument would be a knob with no caller.
+
+---
+
+## ADR-012: Email templates as JSX, without a component library
+
+- **Status:** Accepted (amends the mechanism of ADR-005, not its choice)
+- **Context:** ADR-005 chose Resend specifically for "first-class support for
+  React Email … templates written as JSX components". When the template came to
+  be built, `@react-email/components` was marked deprecated on npm with no
+  successor named.
+- **Decision:** Keep Resend and keep the template as JSX in the repo. Drop
+  `@react-email/components`. Render with `renderToStaticMarkup` from
+  `react-dom/server.edge` into an email-safe nested table with inline styles.
+- **Why:** ADR-005's stated rationale is that templates are JSX in the repo,
+  consistent with the rest of the stack — that is preserved. Only the library is
+  gone. The layout is one centred column and a list, which a nested table covers
+  in every client, so the library's main value (working around client quirks in
+  complex layouts) does not apply. Dropping it removes a deprecated dependency and
+  roughly thirty transitive packages. `renderToStaticMarkup` escapes text
+  content, so a problem title containing markup cannot inject into the email —
+  there is a test for that.
+- **Alternatives considered:** Keeping the deprecated package — rejected; a
+  dependency with no support and no named successor is a liability in the one
+  feature that *is* the product. Hand-writing HTML template strings — rejected;
+  it loses JSX and requires hand-rolled escaping, which is exactly where an
+  injection bug would hide. Migrating to another email component library —
+  rejected as disproportionate for this layout.
+- **Consequences:** The import is `react-dom/server.edge` rather than
+  `react-dom/server`, because Next's App Router build refuses the bare specifier
+  on the reasonable assumption that it signals a mis-rendered component. A comment
+  at the import records why. If the email ever grows into a complex layout, this
+  decision is worth revisiting.
+
+---
+
+## ADR-013: Send protocol — claim before send, release on failure, idempotency key
+
+- **Status:** Accepted (locked for MVP)
+- **Context:** The cron polls every 15 minutes and due-ness deliberately stays
+  true for the rest of the roadmap's local day, so the sweep will consider the
+  same roadmap up to 96 times. `SendLog` with `UNIQUE(roadmapId, localDate)`
+  prevents repeats, but *when* the row is written turns out to matter more than
+  that it exists. ARCHITECTURE.md names duplicate emails as this product's most
+  likely public embarrassment.
+- **Decision:** Three parts, and all three are load-bearing:
+  1. **Claim before sending.** `recordSend` runs first; losing the insert means
+     another invocation owns the day and this one skips.
+  2. **Release on failure.** If `channel.send` rejects, the claim is deleted so a
+     later tick that day retries.
+  3. **Every send carries `sentKey(roadmapId, localDate)` as an idempotency key**,
+     which the provider uses to deduplicate.
+- **Why:** Each part exists because the previous one opened a hole.
+  - Claiming *after* a successful send looks natural and is wrong: two overlapping
+    invocations both pass a read-then-write check and both deliver. Claiming first
+    makes the unique insert itself the mutual exclusion.
+  - Claiming first means a transient provider outage would burn the whole day, so
+    the claim has to be released on failure.
+  - Releasing on failure reopens duplicate sends by a different route: a rejection
+    does **not** prove nothing was delivered. A timeout or connection reset after
+    Resend accepted the message throws locally while the email is already on its
+    way; the retry then sends a genuine second copy. The idempotency key closes
+    that, and it is keyed per roadmap-day so a same-day retry collapses while
+    tomorrow's send is untouched.
+- **Alternatives considered:** *Classify failures* as clean-versus-ambiguous in
+  application code and only release the clean ones — rejected, that is guesswork
+  about a network boundary, and getting it wrong is silent either way. *Never
+  release*, accepting a lost day per transient failure — simpler and safe against
+  duplicates, but it throws away the retry that 96 daily ticks make nearly free.
+  *Advisory locks or `SERIALIZABLE`* — rejected as heavier than a unique index for
+  a guarantee the index already provides.
+- **Consequences:** One residual hole remains and is documented in
+  ARCHITECTURE.md §5: if the process dies between the claim and the send
+  completing, that user loses that day. It is bounded to one day, and the fix if
+  ever needed is a reapable `sentAt`-null claim row rather than a change of
+  ordering. `NotificationChannel.send` therefore takes a third `SendContext`
+  argument — a delivery identity is channel-agnostic, and any provider worth using
+  supports some form of it.

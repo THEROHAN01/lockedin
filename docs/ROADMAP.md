@@ -21,16 +21,34 @@ they finish it. Nothing else.
 4. **Configure roadmap** — name, start date, end date, and daily email
    send-time.
 5. **Daily email** — an automated email per roadmap per day, containing:
-   - problem title
-   - link to the problem
-   - difficulty
-   - progress (e.g. problems completed / total, days elapsed / total)
+   - **one to five problems** (see the note below), each with:
+     - problem title
+     - link to the problem
+     - difficulty
+   - progress (problems completed / total, days elapsed / total)
    - a quote
 6. **View progress** — user can see roadmap progress in-app.
-7. **Mark complete** — user can mark a problem as solved.
+7. **Mark complete** — user can mark a problem as solved. One-directional:
+   un-marking is **out of MVP scope**. Because progress is stored as an
+   append-only event log, adding it later is a `DELETE` on the completion
+   subresource with no migration and no loss of history.
+8. **Archive roadmap** — user can archive a roadmap so it stops nagging, and
+   unarchive it. Implemented as a `status` field on the existing roadmap
+   resource, not a bespoke endpoint.
 
 That's the full MVP. No AI, no gamification, no multi-channel notifications,
 no analytics.
+
+> **Amendment (feature 5).** This originally specified a single problem per
+> email. Pacing is rate-based and recomputed at send time (ADR-011), so when a
+> user falls behind the quota rises and the email carries a list — capped at
+> five, because a twenty-problem email is noise rather than a nudge.
+>
+> **Amendment (feature 8).** Archiving was not in the original seven. It became
+> necessary once `endDate` was made a goal rather than a wall: a roadmap keeps
+> nagging until it is finished, so without archiving it would never reach a
+> terminal state on its own. It costs one enum value on a field that already
+> exists.
 
 ## Future Vision — Not Building Now
 
