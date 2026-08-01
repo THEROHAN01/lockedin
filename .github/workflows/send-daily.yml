@@ -1,0 +1,69 @@
+name: Daily digest sweep
+
+# Wakes the app so it can decide who is due an email.
+#
+# This is a *scheduler*, not logic. Everything it does is one authenticated HTTP
+# call; all the deciding happens in the app. That is deliberate — see
+# docs/ARCHITECTURE.md §10. Swapping to Vercel Cron, Inngest, or anything else
+# means changing who makes this call, and no application code at all.
+#
+# It lives here rather than in vercel.json because Vercel's Hobby plan refuses
+# any cron more frequent than daily, and a daily-only sweep silently breaks
+# per-roadmap send times (ADR-014).
+
+on:
+  schedule:
+    # Every 15 minutes. GitHub's scheduler is best-effort and can run late under
+    # load; that is harmless here, because due-ness is "has the send time passed
+    # and have we not sent today", not "did you fire at exactly 07:00".
+    - cron: '*/15 * * * *'
+  # Lets you run it by hand from the Actions tab.
+  workflow_dispatch:
+
+# Never let two sweeps overlap. The send log makes that safe anyway, but there is
+# no reason to pay for the duplicate work.
+concurrency:
+  group: send-daily
+  cancel-in-progress: false
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Trigger the sweep
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -uo pipefail
+
+          if [ -z "${APP_URL:-}" ] || [ -z "${CRON_SECRET:-}" ]; then
+            echo "::error::Set the APP_URL and CRON_SECRET repository secrets."
+            exit 1
+          fi
+
+          # Secrets come from the environment, never the command line, so they
+          # cannot end up in a process list or the run log.
+          status=$(curl -sS \
+            --max-time 120 \
+            --retry 2 --retry-connrefused --retry-delay 5 \
+            -o response.json \
+            -w '%{http_code}' \
+            "${APP_URL%/}/api/cron/send-daily" \
+            -H "authorization: Bearer ${CRON_SECRET}") || {
+              echo "::error::Could not reach the app at ${APP_URL%/}"
+              exit 1
+            }
+
+          echo "HTTP $status"
+          cat response.json || true
+          echo
+
+          # The app answers 503 when every attempted send failed — a revoked API
+          # key, say. Failing the job here is the monitoring: GitHub emails you.
+          # Partial failures stay 200 by design and are visible in the body above.
+          if [ "$status" -ge 400 ]; then
+            echo "::error::Sweep returned HTTP $status"
+            exit 1
+          fi

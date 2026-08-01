@@ -399,3 +399,48 @@ specifically), Alternatives considered, Consequences.
   ordering. `NotificationChannel.send` therefore takes a third `SendContext`
   argument — a delivery identity is channel-agnostic, and any provider worth using
   supports some form of it.
+
+---
+
+## ADR-014: Scheduling — GitHub Actions drives the sweep, Vercel Cron backs it up
+
+- **Status:** Accepted (revisit on Pro, or on the Inngest migration)
+- **Context:** ADR-006 chose "a single Vercel Cron running on a short interval"
+  and deferred Inngest. On deployment that ran into a hard platform limit:
+  Vercel's Hobby plan permits cron jobs **once per day**, and a more frequent
+  expression does not degrade — it *fails the deployment outright*.
+  A daily-only sweep is not merely coarser, it is broken: due-ness asks "has this
+  roadmap's local send time passed?", so a user whose send time falls later in the
+  day than the single daily tick is skipped, and is skipped again every subsequent
+  day at the same wrong hour. They would never receive an email at all.
+- **Decision:** A GitHub Actions scheduled workflow calls the existing
+  `/api/cron/send-daily` endpoint every 15 minutes. `vercel.json` keeps a **daily**
+  cron pointed at the same endpoint as a backstop. No application code changes.
+- **Why:**
+  - It preserves the behaviour that is already built and tested. The 15-minute
+    cadence is what makes per-roadmap send times meaningful and what makes a
+    failed send retry the same day.
+  - It is free, and the repository is already on GitHub.
+  - Running both schedulers at once is safe *by construction*, not by luck:
+    `UNIQUE(roadmapId, localDate)` on `SendLog` means the endpoint sends at most
+    one email per roadmap per local day no matter how many callers it has
+    (ADR-013). So the backstop costs nothing and cannot double-send.
+  - The workflow failing on a `>= 400` response doubles as free monitoring — the
+    app answers `503` when every send failed, so GitHub emails on a systemic
+    outage.
+- **Alternatives considered:** *Vercel Pro* ($20/month) — works with no extra
+  moving parts and stays on one platform; rejected only as premature for a
+  single-user project, and it remains a one-line change. *Hobby with a daily cron*
+  — rejected, it silently breaks send times as described above. *Adopting Inngest
+  now* — rejected as disproportionate to ship; still the planned upgrade per
+  ADR-006.
+- **Consequences:** GitHub's scheduler is best-effort and can run several minutes
+  late under load, which is harmless here because due-ness is state-based rather
+  than moment-based. The scheduler now lives outside Vercel, so a scheduling
+  failure will not appear in Vercel's logs — the Actions run history is the place
+  to look. On a private repository these runs consume Actions minutes; roughly
+  2,900 short runs a month fits the free allowance, and halving the cadence to 30
+  minutes is the dial if it ever does not.
+- **Not to be undone:** the endpoint takes no parameters and the caller makes no
+  decisions. That is the whole reason this swap was configuration and not a
+  rewrite (ARCHITECTURE.md §10). Keep the deciding inside the app.

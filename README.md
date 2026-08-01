@@ -115,6 +115,72 @@ error costs one retry rather than the whole day.
 
 ## Deploying
 
-Vercel, per ADR-007. `vercel.json` registers the cron. Set `DATABASE_URL` to a
-Neon connection string and the rest of `.env.example` in the project's
-environment variables. Migrations run with `pnpm exec prisma migrate deploy`.
+Vercel per ADR-007, with the sweep driven from GitHub Actions per ADR-014.
+
+**1. Database.** Create a Postgres database on Neon and copy its pooled
+connection string. Apply the schema from your machine — deliberately not from the
+build, so a preview deploy can never migrate production:
+
+```bash
+DATABASE_URL="<neon-connection-string>" pnpm db:deploy
+```
+
+**2. Vercel project.**
+
+```bash
+npm i -g vercel
+vercel login
+vercel link
+```
+
+**3. Environment variables** — set these for Production in the Vercel dashboard,
+or with `vercel env add <NAME> production`:
+
+| Variable | Value |
+|---|---|
+| `DATABASE_URL` | the Neon connection string |
+| `BETTER_AUTH_SECRET` | `openssl rand -base64 32` — a **new** one, not your local value |
+| `BETTER_AUTH_URL` | your production URL, e.g. `https://lockedin.vercel.app` |
+| `RESEND_API_KEY` | from Resend |
+| `EMAIL_FROM` | see the note below |
+| `CRON_SECRET` | `openssl rand -base64 32` — a new one |
+
+`BETTER_AUTH_URL` must match the deployed origin exactly or sign-in silently
+fails to set a cookie.
+
+**4. Deploy.**
+
+```bash
+vercel --prod
+```
+
+**5. Point the scheduler at it.** In the GitHub repo, add two secrets under
+*Settings → Secrets and variables → Actions*:
+
+| Secret | Value |
+|---|---|
+| `APP_URL` | your production URL, no trailing slash |
+| `CRON_SECRET` | the **same** value you set in Vercel |
+
+Then run the workflow once by hand from the Actions tab to check it. It prints the
+sweep result and fails the job on any `>= 400`, which is also your outage alert.
+
+### About `EMAIL_FROM`
+
+`onboarding@resend.dev` needs no domain but **only delivers to the address your own
+Resend account is registered under.** That is fine while you are the only user; it
+means nobody else can receive anything.
+
+To email real users, verify a domain in Resend and set
+`EMAIL_FROM="LockedIn <nag@yourdomain.com>"`.
+
+### Scheduling notes
+
+`.github/workflows/send-daily.yml` runs every 15 minutes and is the real driver.
+`vercel.json` also registers a **daily** cron on the same endpoint as a backstop —
+safe to have both, because the endpoint sends at most one email per roadmap per
+local day no matter how many callers it has.
+
+Vercel's Hobby plan rejects any cron more frequent than daily, which is why the
+15-minute cadence lives in Actions. On Pro, set `vercel.json` to `*/15 * * * *`
+and delete the workflow; nothing in the app changes. See ARCHITECTURE.md §10.

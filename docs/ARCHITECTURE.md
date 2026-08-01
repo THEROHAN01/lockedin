@@ -18,27 +18,35 @@ flowchart LR
   U["User<br/>(browser)"]
   I["User inbox"]
 
+  subgraph SCHED["Scheduler — interchangeable, see §10"]
+    GHA["GitHub Actions<br/>every 15 min"]
+    VC["Vercel Cron<br/>daily backstop"]
+  end
+
   subgraph VER["Vercel"]
     APP["Next.js 15<br/>App Router"]
-    CRON["Vercel Cron<br/>every 15 min"]
   end
 
   DB[("Neon<br/>Postgres")]
   RES["Resend API"]
 
   U -->|"RSC + Server Actions"| APP
-  CRON -->|"GET /api/cron/send-daily<br/>Bearer CRON_SECRET"| APP
+  GHA -->|"GET /api/cron/send-daily<br/>Bearer CRON_SECRET"| APP
+  VC -->|"same call"| APP
   APP -->|"Prisma"| DB
   APP -->|"NotificationChannel"| RES
   RES --> I
 ```
 
 One deployable: the Next.js app. There is no separate backend service and no worker fleet — per
-ADR-001 and ADR-007 the app *is* the backend, and the only thing outside it is the cron trigger,
-which is just an authenticated HTTP call back into the same app.
+ADR-001 and ADR-007 the app *is* the backend.
 
-Vercel Cron polls every 15 minutes rather than firing per-user. Consequences of that choice are
-handled in §5, and the point at which it stops working is quantified in §6.
+The scheduler is deliberately *not* part of the app. Whatever wakes the sweep does so with one
+authenticated HTTP call and holds no logic of its own, which is why the box above contains two
+schedulers at once and why replacing them is configuration rather than code (§10).
+
+The sweep polls rather than firing per-user. Consequences of that are handled in §5, and the point at
+which it stops working is quantified in §6.
 
 ---
 
@@ -658,3 +666,48 @@ Two Vitest projects, because the split is meaningful:
   real database and the real domain logic while asserting on captured payloads.
 
 The frontend has no tests. It is a harness for driving the API by hand, and will be replaced.
+
+---
+
+## 10. Triggering the sweep
+
+The contract is one sentence: **an HTTP `GET` to `/api/cron/send-daily` carrying
+`Authorization: Bearer $CRON_SECRET`.** Nothing else. The caller passes no
+parameters, makes no decisions, and needs no knowledge of roadmaps, timezones or
+send times — all of that is inside the app.
+
+That is what makes the scheduler swappable without touching application code, and
+it is worth protecting. Two properties do the protecting:
+
+- **Idempotent per roadmap-day.** `UNIQUE(roadmapId, localDate)` on `SendLog`
+  means calling this endpoint twice, or a hundred times, sends at most one email
+  per roadmap per local day. So you can point *several* schedulers at it
+  simultaneously and they cannot fight.
+- **Self-healing.** Due-ness is "has the send time passed and have we not sent
+  today", never "did you fire at exactly 07:00". A late or missed call costs
+  nothing as long as some later call lands the same day.
+
+Together those mean a scheduler needs no retry logic, no state, and no
+coordination with any other scheduler.
+
+### What currently calls it
+
+| Caller | Cadence | Why |
+|---|---|---|
+| `.github/workflows/send-daily.yml` | every 15 min | The real driver. Free, and Vercel's Hobby plan cannot go below daily (ADR-014) |
+| `vercel.json` `crons` | daily, ~01:00 UTC | Backstop. If Actions is broken or disabled, users still get nagged once a day |
+| Harness UI "Run sweep" | manual, dev only | Session-authenticated, absent in production |
+
+### Swapping it
+
+- **To Vercel Cron only** (needs Pro): set `vercel.json` to `*/15 * * * *` and
+  delete the workflow. No code change.
+- **To Inngest** (ADR-006): Inngest calls the same endpoint, or invokes
+  `sendDailyDigests` directly since it is a plain exported function taking `now`
+  and a channel. No code change to reach it either way.
+- **To anything else** — cron-job.org, QStash, a VPS crontab: it is a `curl` with
+  a header.
+
+The one thing not to do is move the *deciding* into the scheduler. The moment a
+caller starts computing who is due, the contract above is gone and every scheduler
+becomes a rewrite.
