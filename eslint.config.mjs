@@ -1,3 +1,5 @@
+import nextPlugin from '@next/eslint-plugin-next';
+import reactHooks from 'eslint-plugin-react-hooks';
 import tseslint from 'typescript-eslint';
 
 /**
@@ -31,6 +33,23 @@ export default tseslint.config(
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
       ],
       '@typescript-eslint/consistent-type-imports': 'error',
+    },
+  },
+
+  // ── Next and React rules, scoped to the Next app itself ─────────────────
+  // Wired via the plugins directly rather than eslint-config-next, which needs
+  // FlatCompat and @eslint/eslintrc to work with a flat config.
+  //
+  // Deliberately not applied to src/emails: that template is a standalone HTML
+  // document for a mail client, so it legitimately renders <html>, <head> and
+  // <body>, which Next's page rules would reject. It contains no hooks either.
+  {
+    files: ['app/**/*.{ts,tsx}'],
+    plugins: { '@next/next': nextPlugin, 'react-hooks': reactHooks },
+    rules: {
+      ...nextPlugin.configs.recommended.rules,
+      ...nextPlugin.configs['core-web-vitals'].rules,
+      ...reactHooks.configs.recommended.rules,
     },
   },
 
