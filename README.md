@@ -75,6 +75,24 @@ delete the row:
 docker exec lockedin-db psql -U lockedin -d lockedin -c "DELETE FROM send_log;"
 ```
 
+## If the frontend breaks with `Cannot find module './705.js'`
+
+`pnpm dev` and `pnpm build` both write to `.next`, so running a build while the
+dev server is up replaces the chunks underneath it and every page 500s with a
+missing-module error. Nothing is actually wrong with the code:
+
+```bash
+lsof -ti:3000 | xargs -r kill     # stop the dev server
+rm -rf .next                      # drop the mixed output
+pnpm dev
+```
+
+If the port still answers afterwards, an orphaned server is holding it — Next
+silently falls back to 3001 and you keep hitting the broken one. Check with
+`ps -eo pid,args | grep next-server` and kill the tree.
+
+Don't run `pnpm build` and `pnpm dev` at the same time.
+
 ## Three things worth knowing before changing code
 
 **The domain layer is pure.** `src/domain/` has no database, no network and no
