@@ -78,9 +78,15 @@ export async function sendDailyDigests(
 
     try {
       if (await sendDigestForRoadmap(roadmap, localDate, channel)) sent += 1;
-    } catch {
-      // Swallowed deliberately: the point of this catch is that one roadmap's
-      // problem is not everyone else's. The claim has already been released.
+    } catch (error) {
+      // Caught so one roadmap's problem is not everyone else's; the claim has
+      // already been released. But not swallowed silently — without this line a
+      // failed send is undiagnosable, and the only signal is a number in a JSON
+      // body that nobody is reading at 07:00.
+      console.error(
+        `[send-daily] roadmap ${roadmap.id} (${localDate}) failed:`,
+        error instanceof Error ? error.message : error,
+      );
       failed += 1;
     }
   }

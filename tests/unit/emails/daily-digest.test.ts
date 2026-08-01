@@ -25,9 +25,18 @@ function digest(count: number): DailyDigest {
   };
 }
 
+/** Rendered markup reduced to what a reader actually sees. */
+function visibleText(html: string): string {
+  return html
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 describe('renderDailyDigest', () => {
-  it('carries all five fields ROADMAP feature 5 specifies', () => {
-    const html = renderDailyDigest(digest(1));
+  it('carries all five fields ROADMAP feature 5 specifies', async () => {
+    const html = await renderDailyDigest(digest(1));
 
     expect(html).toContain('Problem 1');
     expect(html).toContain('https://leetcode.com/problems/p1');
@@ -37,50 +46,53 @@ describe('renderDailyDigest', () => {
     expect(html).toContain('Consistency beats intensity.');
   });
 
-  it('renders a list when the quota is more than one', () => {
-    const html = renderDailyDigest(digest(5));
+  it('renders a list when the quota is more than one', async () => {
+    const html = await renderDailyDigest(digest(5));
     for (let n = 1; n <= 5; n++) {
       expect(html).toContain(`Problem ${n}`);
     }
   });
 
-  it('renders one problem without list scaffolding for a quota of one', () => {
-    const html = renderDailyDigest(digest(1));
+  it('renders one problem without list scaffolding for a quota of one', async () => {
+    const html = await renderDailyDigest(digest(1));
     expect(html).not.toContain('Problem 2');
   });
 
-  it('states both halves of progress', () => {
-    const html = renderDailyDigest(digest(2));
-    expect(html).toMatch(/7\s*(of|\/)\s*30/);
-    expect(html).toMatch(/9\s*(of|\/)\s*30/);
+  it('states both halves of progress', async () => {
+    // Assert on visible text, not raw markup. React's streaming renderer inserts
+    // `<!-- -->` between adjacent text nodes, so "7 of 30" ships as
+    // `7<!-- --> of <!-- -->30`. Mail clients ignore comments, so the reader sees
+    // the right thing; a test matching the raw string would not.
+    const text = visibleText(await renderDailyDigest(digest(2)));
+    expect(text).toMatch(/7 of 30 solved/);
+    expect(text).toMatch(/day 9 of 30/);
   });
 
-  it('inlines real colours, because email clients have no var() or color-mix()', () => {
-    const html = renderDailyDigest(digest(1));
+  it('inlines real colours, because email clients have no var() or color-mix()', async () => {
+    const html = await renderDailyDigest(digest(1));
     expect(html).toContain(PALETTE.paper);
     expect(html).not.toContain('var(--');
     expect(html).not.toContain('color-mix');
   });
 
-  it('never paints text in the vivid green', () => {
-    // 1.88:1 on the paper background. Fills and borders only.
+  it('never paints text in the vivid green', async () => {
     // The delimiter matters: this must catch `color:` but not `border-left-color:`.
-    const html = renderDailyDigest(digest(1));
+    const html = await renderDailyDigest(digest(1));
     expect(html).not.toMatch(new RegExp(`["';]\\s*color:\\s*${PALETTE.green}`, 'i'));
   });
 
-  it('escapes a title that contains markup', () => {
+  it('escapes a title that contains markup', async () => {
     const evil: DailyDigest = {
       ...digest(1),
       items: [{ ...item(1), title: '<script>alert(1)</script>' }],
     };
-    const html = renderDailyDigest(evil);
+    const html = await renderDailyDigest(evil);
     expect(html).not.toContain('<script>alert(1)</script>');
     expect(html).toContain('&lt;script&gt;');
   });
 
-  it('produces a complete document', () => {
-    const html = renderDailyDigest(digest(1));
+  it('produces a complete document', async () => {
+    const html = await renderDailyDigest(digest(1));
     expect(html.startsWith('<!DOCTYPE html>')).toBe(true);
     expect(html).toContain('</html>');
   });

@@ -40,7 +40,7 @@ export function createEmailChannel(deps: {
         to,
         from: deps.from,
         subject: subjectFor(digest),
-        html: renderDailyDigest(digest),
+        html: await renderDailyDigest(digest),
         idempotencyKey: context.idempotencyKey,
       });
     },

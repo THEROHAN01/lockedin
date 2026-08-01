@@ -1,8 +1,14 @@
-// Deliberately the `.edge` subpath. Next's App Router build refuses a bare
-// `react-dom/server` import, on the reasonable assumption that it signals a
-// component rendered the wrong way — but this is not a component, it is a pure
-// string-producing function for an email body, reached only from a route handler.
-import { renderToStaticMarkup } from 'react-dom/server.edge';
+// `renderToReadableStream`, not `renderToStaticMarkup`. Next patches the legacy
+// react-dom/server APIs to throw at runtime — "do not use legacy
+// react-dom/server APIs" — and it does so *only* at runtime, so the build and any
+// test that renders outside Next both pass while the real send fails. This is the
+// non-legacy API and is safe inside a route handler.
+//
+// The `.edge` subpath because Next's build additionally refuses the bare
+// `react-dom/server` specifier, on the reasonable assumption that it signals a
+// mis-rendered component. This is not a component; it is a string-producing
+// function for an email body.
+import { renderToReadableStream } from 'react-dom/server.edge';
 import { EMAIL, PALETTE } from '@/styles/palette';
 import type { DailyDigest, Difficulty, DigestItem } from '@/domain/types';
 
@@ -215,8 +221,14 @@ export function subjectFor(digest: DailyDigest): string {
   return `${digest.roadmapName} — ${n} problem${n === 1 ? '' : 's'} today`;
 }
 
-export function renderDailyDigest(digest: DailyDigest): string {
-  // renderToStaticMarkup escapes text content, so a problem title containing
-  // markup cannot inject into the email.
-  return `<!DOCTYPE html>${renderToStaticMarkup(<Digest digest={digest} />)}`;
+export async function renderDailyDigest(digest: DailyDigest): Promise<string> {
+  // React escapes text content, so a problem title containing markup cannot
+  // inject into the email. `allReady` waits for the whole tree rather than
+  // letting a shell flush early — there is nothing to stream to, we want the
+  // finished document.
+  const stream = await renderToReadableStream(<Digest digest={digest} />);
+  await stream.allReady;
+  const body = await new Response(stream).text();
+
+  return `<!DOCTYPE html>${body}`;
 }
