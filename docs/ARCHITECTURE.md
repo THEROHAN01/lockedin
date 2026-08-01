@@ -382,6 +382,26 @@ two overlapping cron invocations would both pass the `if`.
 Duplicate daily emails are the most likely way this product embarrasses itself in front of a real
 user, so the guarantee lives in the database.
 
+### The claim is taken before the send, and released if it fails
+
+`recordSend` runs *before* `channel.send`, not after. Claiming afterwards would let
+two overlapping invocations both pass their checks and both deliver, which is the
+failure this table exists to prevent. Claiming first means only one wins the
+insert.
+
+The cost of that ordering is that a failed send must give the day back, or a
+transient Resend outage would cost the user the whole day rather than one retry.
+`releaseSend` does that, and there is a test asserting no claim is left behind and
+the next sweep delivers.
+
+**Residual risk, stated honestly:** if the process dies in the window between the
+claim being written and the send completing, the claim survives and no email was
+sent — that user silently loses that day. The window is small, the consequence is
+one missed nudge for one person, and the alternative ordering trades it for
+duplicate emails under concurrency, which is worse and much more visible. If this
+ever needs closing, the fix is a `sentAt`-null claim row that a later tick can
+reap, not a change of ordering.
+
 ### Why due-ness is self-healing
 
 Due-ness is `localTime >= sendTimeLocal AND no SendLog for today`, not "are we inside a 15-minute
