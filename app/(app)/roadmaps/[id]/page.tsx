@@ -1,11 +1,8 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { requireUserId } from '@/http/session';
-import {
-  getProgressFor,
-  getRoadmapFor,
-  listItemsWithCompletionFor,
-} from '@/usecases/roadmaps';
+import { getProgressFor, listItemsWithCompletionFor } from '@/usecases/progress';
+import { getRoadmapFor } from '@/usecases/roadmaps';
 import {
   markCompleteAction,
   sendNowAction,
@@ -181,8 +178,9 @@ export default async function RoadmapDetailPage({
           <section>
             <h3>Send now</h3>
             <p className="lk-label">
-              Development only. Runs the real sweep, including the send log, so a
-              second press does nothing until tomorrow.
+              Development only. Runs the real sweep over{' '}
+              <strong>every active roadmap</strong>, not just this one, including
+              the send log — so a second press does nothing until tomorrow.
             </p>
             <form action={sendNowAction}>
               <input type="hidden" name="roadmapId" value={roadmap.id} />

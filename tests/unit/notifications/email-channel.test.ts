@@ -24,6 +24,8 @@ function recordingSender() {
   return { sender, messages };
 }
 
+const CONTEXT = { idempotencyKey: 'roadmap-1|2026-01-06' };
+
 describe('createEmailChannel', () => {
   it('maps a digest onto one email', async () => {
     // Resend is injected rather than imported, so this exercises the real
@@ -31,7 +33,7 @@ describe('createEmailChannel', () => {
     const { sender, messages } = recordingSender();
     const channel = createEmailChannel({ sender, from: 'LockedIn <nag@x.com>' });
 
-    await channel.send('user@example.com', DIGEST);
+    await channel.send('user@example.com', DIGEST, CONTEXT);
 
     expect(messages).toHaveLength(1);
     expect(messages[0]).toMatchObject({
@@ -42,6 +44,19 @@ describe('createEmailChannel', () => {
     expect(messages[0]?.html).toContain('Two Sum');
   });
 
+  it('passes the idempotency key through to the sender', async () => {
+    // This is what makes a retry safe. The sweep releases its claim when a send
+    // throws, so an ambiguous failure — a timeout after the provider already
+    // accepted the message — would otherwise send a genuine second email on the
+    // next tick. The provider dedupes on this key instead.
+    const { sender, messages } = recordingSender();
+    const channel = createEmailChannel({ sender, from: 'x@y.com' });
+
+    await channel.send('user@example.com', DIGEST, CONTEXT);
+
+    expect(messages[0]?.idempotencyKey).toBe('roadmap-1|2026-01-06');
+  });
+
   it('lets a send failure propagate, so the sweep can isolate it', async () => {
     const sender: EmailSender = {
       send() {
@@ -50,8 +65,8 @@ describe('createEmailChannel', () => {
     };
     const channel = createEmailChannel({ sender, from: 'x@y.com' });
 
-    await expect(channel.send('user@example.com', DIGEST)).rejects.toThrow(
-      'resend is down',
-    );
+    await expect(
+      channel.send('user@example.com', DIGEST, CONTEXT),
+    ).rejects.toThrow('resend is down');
   });
 });

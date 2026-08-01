@@ -1,6 +1,6 @@
 import { renderDailyDigest, subjectFor } from '@/emails/daily-digest';
 import type { DailyDigest } from '@/domain/types';
-import type { NotificationChannel } from './channel';
+import type { NotificationChannel, SendContext } from './channel';
 
 /**
  * Email delivery, per ADR-005.
@@ -16,6 +16,8 @@ export interface EmailMessage {
   from: string;
   subject: string;
   html: string;
+  /** Sent as `Idempotency-Key`, so a retry cannot deliver twice. */
+  idempotencyKey: string;
 }
 
 export interface EmailSender {
@@ -27,7 +29,11 @@ export function createEmailChannel(deps: {
   from: string;
 }): NotificationChannel {
   return {
-    async send(to: string, digest: DailyDigest): Promise<void> {
+    async send(
+      to: string,
+      digest: DailyDigest,
+      context: SendContext,
+    ): Promise<void> {
       // Failures propagate. The sweep catches them per roadmap so one bad send
       // does not stop everyone else's email.
       await deps.sender.send({
@@ -35,6 +41,7 @@ export function createEmailChannel(deps: {
         from: deps.from,
         subject: subjectFor(digest),
         html: renderDailyDigest(digest),
+        idempotencyKey: context.idempotencyKey,
       });
     },
   };
@@ -47,12 +54,18 @@ export function resendSender(apiKey: string): EmailSender {
       const { Resend } = await import('resend');
       const resend = new Resend(apiKey);
 
-      const { error } = await resend.emails.send({
-        from: message.from,
-        to: message.to,
-        subject: message.subject,
-        html: message.html,
-      });
+      const { error } = await resend.emails.send(
+        {
+          from: message.from,
+          to: message.to,
+          subject: message.subject,
+          html: message.html,
+        },
+        // The guarantee that makes the sweep's release-and-retry safe: if a send
+        // times out after Resend has already accepted the message, the retry
+        // carries the same key and Resend collapses the two.
+        { idempotencyKey: message.idempotencyKey },
+      );
 
       // Resend reports failures in the body rather than by throwing, which would
       // otherwise look like a successful send and get written to the SendLog.

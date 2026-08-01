@@ -1,4 +1,4 @@
-import type { ValidationDetail } from '@/domain/errors';
+import type { ValidationDetail } from '@/errors';
 
 /**
  * One response shape for the whole API, so six handlers do not invent six

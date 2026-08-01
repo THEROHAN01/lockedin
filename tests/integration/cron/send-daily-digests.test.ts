@@ -280,6 +280,38 @@ describe('failure isolation', () => {
     expect(channel.sent.map((s) => s.to)).toEqual([fine.user.email]);
   });
 
+  it('reuses one idempotency key across a failure and its retry', async () => {
+    // Releasing the claim is what allows a retry, and a retry is what makes an
+    // ambiguous failure — a timeout after the provider already accepted the
+    // message — able to deliver twice. The key is stable per roadmap-day so the
+    // provider can dedupe it. Without this, releasing reopens the double-send
+    // hole the send log exists to close.
+    const { user, roadmap } = await seed({ itemCount: 5 });
+
+    const failing = new FakeChannel({ failFor: [user.email] });
+    await sendDailyDigests(AT_0730_IST, failing);
+
+    const retry = new FakeChannel();
+    await sendDailyDigests(new Date('2026-01-06T03:00:00Z'), retry);
+
+    const expected = `${roadmap.id}|2026-01-06`;
+    expect(failing.attempts[0]?.context.idempotencyKey).toBe(expected);
+    expect(retry.sent[0]?.context.idempotencyKey).toBe(expected);
+  });
+
+  it('uses a different key the next local day', async () => {
+    const { roadmap } = await seed({ itemCount: 5 });
+
+    const channel = new FakeChannel();
+    await sendDailyDigests(AT_0730_IST, channel);
+    await sendDailyDigests(new Date('2026-01-07T02:00:00Z'), channel);
+
+    expect(channel.sent.map((s) => s.context.idempotencyKey)).toEqual([
+      `${roadmap.id}|2026-01-06`,
+      `${roadmap.id}|2026-01-07`,
+    ]);
+  });
+
   it('leaves no claim behind for a failed send, so the next sweep retries', async () => {
     // The claim is written before the send so concurrent invocations cannot both
     // deliver. If the send then fails, the claim must be released or the user

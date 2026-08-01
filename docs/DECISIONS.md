@@ -354,3 +354,48 @@ specifically), Alternatives considered, Consequences.
   on the reasonable assumption that it signals a mis-rendered component. A comment
   at the import records why. If the email ever grows into a complex layout, this
   decision is worth revisiting.
+
+---
+
+## ADR-013: Send protocol — claim before send, release on failure, idempotency key
+
+- **Status:** Accepted (locked for MVP)
+- **Context:** The cron polls every 15 minutes and due-ness deliberately stays
+  true for the rest of the roadmap's local day, so the sweep will consider the
+  same roadmap up to 96 times. `SendLog` with `UNIQUE(roadmapId, localDate)`
+  prevents repeats, but *when* the row is written turns out to matter more than
+  that it exists. ARCHITECTURE.md names duplicate emails as this product's most
+  likely public embarrassment.
+- **Decision:** Three parts, and all three are load-bearing:
+  1. **Claim before sending.** `recordSend` runs first; losing the insert means
+     another invocation owns the day and this one skips.
+  2. **Release on failure.** If `channel.send` rejects, the claim is deleted so a
+     later tick that day retries.
+  3. **Every send carries `sentKey(roadmapId, localDate)` as an idempotency key**,
+     which the provider uses to deduplicate.
+- **Why:** Each part exists because the previous one opened a hole.
+  - Claiming *after* a successful send looks natural and is wrong: two overlapping
+    invocations both pass a read-then-write check and both deliver. Claiming first
+    makes the unique insert itself the mutual exclusion.
+  - Claiming first means a transient provider outage would burn the whole day, so
+    the claim has to be released on failure.
+  - Releasing on failure reopens duplicate sends by a different route: a rejection
+    does **not** prove nothing was delivered. A timeout or connection reset after
+    Resend accepted the message throws locally while the email is already on its
+    way; the retry then sends a genuine second copy. The idempotency key closes
+    that, and it is keyed per roadmap-day so a same-day retry collapses while
+    tomorrow's send is untouched.
+- **Alternatives considered:** *Classify failures* as clean-versus-ambiguous in
+  application code and only release the clean ones — rejected, that is guesswork
+  about a network boundary, and getting it wrong is silent either way. *Never
+  release*, accepting a lost day per transient failure — simpler and safe against
+  duplicates, but it throws away the retry that 96 daily ticks make nearly free.
+  *Advisory locks or `SERIALIZABLE`* — rejected as heavier than a unique index for
+  a guarantee the index already provides.
+- **Consequences:** One residual hole remains and is documented in
+  ARCHITECTURE.md §5: if the process dies between the claim and the send
+  completing, that user loses that day. It is bounded to one day, and the fix if
+  ever needed is a reapable `sentAt`-null claim row rather than a change of
+  ordering. `NotificationChannel.send` therefore takes a third `SendContext`
+  argument — a delivery identity is channel-agnostic, and any provider worth using
+  supports some form of it.

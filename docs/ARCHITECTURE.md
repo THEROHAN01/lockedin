@@ -394,13 +394,24 @@ transient Resend outage would cost the user the whole day rather than one retry.
 `releaseSend` does that, and there is a test asserting no claim is left behind and
 the next sweep delivers.
 
+Releasing on failure reopens a subtler hole, which is why the send carries an
+**idempotency key**. `channel.send` rejecting does not prove nothing was
+delivered: a timeout or a connection reset *after* Resend accepted the message
+throws on our side while the email is already on its way. Release the claim and
+the next tick sends a second, genuine email — the exact failure this table exists
+to prevent, arriving by a different route. Every send therefore carries
+`sentKey(roadmapId, localDate)` as its `Idempotency-Key`, so a retry of an
+ambiguous failure is collapsed by the provider rather than delivered twice.
+Distinguishing ambiguous from clean failures in application code would be
+guesswork; letting the provider dedupe is not.
+
 **Residual risk, stated honestly:** if the process dies in the window between the
 claim being written and the send completing, the claim survives and no email was
-sent — that user silently loses that day. The window is small, the consequence is
-one missed nudge for one person, and the alternative ordering trades it for
-duplicate emails under concurrency, which is worse and much more visible. If this
-ever needs closing, the fix is a `sentAt`-null claim row that a later tick can
-reap, not a change of ordering.
+sent — that user silently loses that day. It is bounded to one day: tomorrow is a
+new `localDate`. The window is small, the consequence is one missed nudge, and the
+alternative ordering trades it for duplicate emails under concurrency, which is
+worse and much more visible. If this ever needs closing, the fix is a
+`sentAt`-null claim row that a later tick can reap, not a change of ordering.
 
 ### Why due-ness is self-healing
 
@@ -430,15 +441,34 @@ The `localDate` stored on `SendLog` is the *roadmap's* local date. That matters:
 Nothing here is built yet. It is recorded so the next person knows what to watch and does not build
 it early.
 
+**Reason about `S`, not `N`.** Batching the already-sent lookup (§5) made the
+per-roadmap cost of an *already-sent* roadmap zero, which moved the bottleneck off
+total active roadmaps (`N`) and onto the number **due-and-unsent in a single
+15-minute window** (`S`). Those are very different numbers, because users cluster
+around 07:00–09:00. Headroom estimates phrased in terms of `N` are stale by
+construction.
+
 | Limit | Bites at roughly | Response |
 |---|---|---|
-| Sequential per-roadmap already-sent queries | 2,000–5,000 active roadmaps | **Already addressed** — batched into one `findMany` (§5) |
-| Sequential email sends within a tick | ~25 roadmaps due-and-unsent in the *same* window | Bounded concurrency via `Promise.allSettled` in small batches, still inside the same function. No queue |
-| The whole poll-and-loop shape | ~5,000–10,000 active roadmaps, or a second notification channel needing its own retry semantics | Migrate to Inngest per ADR-006 |
+| Sequential per-roadmap already-sent queries | — | **Already addressed** — batched into one `findMany` (§5) |
+| Sequential email sends within a tick | `S ≈ 100–150` on a default duration budget | Bounded concurrency via `Promise.allSettled` in small batches, still inside the same function. No queue |
+| The whole poll-and-loop shape | `S` past the concurrency fix, or a second channel needing its own retry semantics | Migrate to Inngest per ADR-006 |
 
-The middle row's trigger is send-time *clustering*, not total user count — everyone picking 07:00
-produces a spike regardless of how many roadmaps exist in total. Do not pre-empt it; measure the
-due-and-unsent count per tick.
+Each due-and-unsent roadmap costs roughly two reads, one write and one provider
+call — order of 300ms–1.5s. `S ≈ 100–150` is where sequential processing starts to
+strain a default serverless duration budget, and with realistic send-time
+clustering that can arrive at a **total** of only a few hundred to ~1,000 active
+roadmaps.
+
+The documented trigger for adding concurrency is deliberately much earlier —
+**~25 due-and-unsent in one window** — so there is a 4–6× margin before the real
+cliff. Do not pre-empt it, and do not measure the wrong thing: instrument the
+due-and-unsent count per tick, not the roadmap table's row count.
+
+When that work happens, collapse `listOutstandingItems` + `countItems` in
+`sendDigestForRoadmap` at the same time — they answer different questions today at
+the cost of two round trips, and both counts can be derived in memory from one
+fetch. Not worth a separate visit.
 
 ---
 
@@ -535,6 +565,20 @@ there is no alternative verb available (ADR-006/007). The Bearer secret controls
 and the handler declares `export const dynamic = 'force-dynamic'` so a cached `200` can never be
 served in place of actually running the sweep.
 
+**Partial failure is `200`; total failure is `503`.** The sweep is designed to
+survive one roadmap failing, so the request itself succeeded and per-roadmap detail
+belongs in the body. But a tick where every attempt failed — a revoked API key —
+must not look healthy, because Vercel's cron monitoring keys off HTTP status, and
+otherwise a systemic outage is invisible until a user notices no mail arrived. An
+idle tick has nothing to fail and stays `200`.
+
+**There is no separate dev-only send endpoint.** One existed, guarded only by
+`NODE_ENV`. That guard was correct solely because Vercel forces
+`NODE_ENV=production` on deployed builds — a platform fact the file never asserted.
+Once it carried the same `CRON_SECRET` as the cron route it *was* the cron route,
+so it was deleted rather than duplicated. Local triggering calls the cron endpoint
+with its secret; the harness UI has a session-authenticated action instead.
+
 ---
 
 ## 8. Enforced rules
@@ -588,7 +632,8 @@ app/
   api/auth/[...all]/route.ts
   api/roadmaps/...
   api/cron/send-daily/route.ts
-  api/dev/send-now/route.ts   dev-only manual trigger
+  (app)/                      roadmaps, roadmaps/[id] — and a dev-only
+                              session-authenticated "run sweep" action
   (auth)/                     sign-in, sign-up
   (app)/                      roadmaps, roadmaps/new, roadmaps/[id]
 tests/

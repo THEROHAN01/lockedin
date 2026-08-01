@@ -52,15 +52,20 @@ an outer layer, a framework, or a vendor SDK, and cannot call `new Date()` or
 ## Seeing a real email
 
 The daily send is normally triggered by Vercel Cron every 15 minutes. Locally,
-run the sweep on demand:
+run the same sweep on demand by calling that endpoint yourself:
 
 ```bash
-curl -X POST http://localhost:3000/api/dev/send-now
+curl "http://localhost:3000/api/cron/send-daily" \
+  -H "authorization: Bearer $(grep '^CRON_SECRET=' .env | cut -d'"' -f2)"
 ```
 
-Or press **Run sweep** at the bottom of any roadmap page. Both need a real
-`RESEND_API_KEY` and an `EMAIL_FROM` that is verified on your Resend domain.
-Both refuse to exist in production.
+Or press **Run sweep** at the bottom of any roadmap page, which is session-
+authenticated and absent in production. Both need a real `RESEND_API_KEY` and an
+`EMAIL_FROM` verified on your Resend domain.
+
+There is deliberately no separate unauthenticated dev endpoint. One existed
+briefly, guarded only by `NODE_ENV`; once it carried the same secret as the cron
+route it was the cron route, so it was deleted rather than duplicated.
 
 The sweep is idempotent: it writes a `SendLog` row per roadmap per local day, so
 a second run does nothing until tomorrow. If you want to re-send while testing,

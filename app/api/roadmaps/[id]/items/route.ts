@@ -1,10 +1,8 @@
 import { jsonBody, parseBody, withUser } from '@/http/handler';
 import { created, notFound, ok } from '@/http/respond';
 import { uploadItemsSchema } from '@/http/schemas';
-import {
-  addItemsFromCsv,
-  listItemsWithCompletionFor,
-} from '@/usecases/roadmaps';
+import { listItemsWithCompletionFor } from '@/usecases/progress';
+import { addItemsFromCsv } from '@/usecases/roadmaps';
 
 type Context = { params: Promise<{ id: string }> };
 

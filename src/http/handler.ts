@@ -1,6 +1,7 @@
 import type { ZodType } from 'zod';
+import { APIError } from 'better-auth/api';
 import { auth } from '@/auth';
-import { ValidationError } from '@/domain/errors';
+import { ValidationError } from '@/errors';
 import {
   malformedJson,
   unauthenticated,
@@ -25,11 +26,22 @@ export async function withUser(
   request: Request,
   handle: (userId: string) => Promise<Response>,
 ): Promise<Response> {
-  const session = await auth.api.getSession({ headers: request.headers });
-  const userId = session?.user.id;
-  if (!userId) return unauthenticated();
-
   try {
+    // Inside the try so the comment above is actually true. A rejected session —
+    // a malformed or post-rotation cookie — is a client sending bad credentials,
+    // which is a 401, not a 500. Anything that is not an auth-level error is
+    // infrastructure and must keep propagating, so a database outage does not
+    // masquerade as "please sign in".
+    let userId: string | undefined;
+    try {
+      const session = await auth.api.getSession({ headers: request.headers });
+      userId = session?.user.id;
+    } catch (error) {
+      if (!(error instanceof APIError)) throw error;
+    }
+
+    if (!userId) return unauthenticated();
+
     return await handle(userId);
   } catch (error) {
     if (error instanceof ValidationError) return validationFailed(error.details);

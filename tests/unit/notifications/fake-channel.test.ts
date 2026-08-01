@@ -16,18 +16,22 @@ const DIGEST: DailyDigest = {
   quote: 'Show up today.',
 };
 
+const CONTEXT = { idempotencyKey: 'roadmap-1|2026-01-06' };
+
 describe('FakeChannel', () => {
   it('records what would have been sent', async () => {
     const channel = new FakeChannel();
-    await channel.send('a@example.com', DIGEST);
+    await channel.send('a@example.com', DIGEST, CONTEXT);
 
-    expect(channel.sent).toEqual([{ to: 'a@example.com', digest: DIGEST }]);
+    expect(channel.sent).toEqual([
+      { to: 'a@example.com', digest: DIGEST, context: CONTEXT },
+    ]);
   });
 
   it('records in order', async () => {
     const channel = new FakeChannel();
-    await channel.send('a@example.com', DIGEST);
-    await channel.send('b@example.com', DIGEST);
+    await channel.send('a@example.com', DIGEST, CONTEXT);
+    await channel.send('b@example.com', DIGEST, CONTEXT);
 
     expect(channel.sent.map((s) => s.to)).toEqual([
       'a@example.com',
@@ -41,15 +45,34 @@ describe('FakeChannel', () => {
     // model the happy path and a second ad-hoc double would get invented.
     const channel = new FakeChannel({ failFor: ['broken@example.com'] });
 
-    await expect(channel.send('broken@example.com', DIGEST)).rejects.toThrow();
-    await expect(channel.send('fine@example.com', DIGEST)).resolves.toBeUndefined();
+    await expect(
+      channel.send('broken@example.com', DIGEST, CONTEXT),
+    ).rejects.toThrow();
+    await expect(
+      channel.send('fine@example.com', DIGEST, CONTEXT),
+    ).resolves.toBeUndefined();
   });
 
-  it('does not record a send that failed', async () => {
+  it('does not record a failed send as sent', async () => {
     const channel = new FakeChannel({ failFor: ['broken@example.com'] });
-    await channel.send('broken@example.com', DIGEST).catch(() => undefined);
+    await channel.send('broken@example.com', DIGEST, CONTEXT).catch(() => undefined);
 
     expect(channel.sent).toEqual([]);
     expect(channel.failed).toEqual(['broken@example.com']);
+  });
+
+  it('records every attempt, successful or not', async () => {
+    // The idempotency key of a failed attempt matters: a retry has to reuse it.
+    const channel = new FakeChannel({ failFor: ['broken@example.com'] });
+    await channel.send('broken@example.com', DIGEST, CONTEXT).catch(() => undefined);
+    await channel.send('fine@example.com', DIGEST, CONTEXT);
+
+    expect(channel.attempts.map((a) => a.to)).toEqual([
+      'broken@example.com',
+      'fine@example.com',
+    ]);
+    expect(channel.attempts[0]?.context.idempotencyKey).toBe(
+      'roadmap-1|2026-01-06',
+    );
   });
 });

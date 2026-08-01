@@ -134,7 +134,12 @@ export async function sendDigestForRoadmap(
   if (!claimed) return false;
 
   try {
-    await channel.send(roadmap.recipient, digest);
+    // The claim key doubles as the delivery's identity. Releasing the claim below
+    // enables a retry, and a retry after an ambiguous failure could otherwise
+    // deliver twice; the provider dedupes on this instead.
+    await channel.send(roadmap.recipient, digest, {
+      idempotencyKey: sentKey(roadmap.id, localDate),
+    });
   } catch (error) {
     // Give the day back, or a transient delivery failure costs the user the whole
     // day instead of being retried on the next tick.

@@ -1,12 +1,13 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { request } from '../../helpers/api';
+import { makeRoadmap, makeUser } from '../../helpers/factories';
+import { appendItems } from '@/data/items';
 import { GET as cron } from '@app/api/cron/send-daily/route';
-import { POST as sendNow } from '@app/api/dev/send-now/route';
 
 /**
- * The routes' own responsibility is authentication and wiring; the sweep itself is
- * covered against a FakeChannel in send-daily-digests.test.ts. These run with an
- * empty database, so no roadmap is due and the real channel is never used.
+ * The route's own responsibility is authentication, wiring, and choosing a status
+ * code; the sweep itself is covered against a FakeChannel in
+ * send-daily-digests.test.ts.
  */
 
 function withSecret(secret: string): Request {
@@ -40,22 +41,30 @@ describe('GET /api/cron/send-daily', () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ sent: 0, skipped: 0, failed: 0 });
   });
-});
 
-describe('POST /api/dev/send-now', () => {
-  it('runs outside production', async () => {
-    const response = await sendNow();
+  it('is 200 for an idle tick, with nothing attempted', async () => {
+    const response = await cron(withSecret(process.env.CRON_SECRET ?? ''));
     expect(response.status).toBe(200);
   });
 
-  it('does not exist in production', async () => {
-    // Unauthenticated by design, so the guarantee has to be that it is absent
-    // rather than protected.
-    vi.stubEnv('NODE_ENV', 'production');
-    try {
-      expect((await sendNow()).status).toBe(404);
-    } finally {
-      vi.unstubAllEnvs();
-    }
+  it('is 5xx when every attempted send failed', async () => {
+    // Vercel's cron monitoring keys off HTTP status, so a systemic outage — a
+    // revoked API key, say — must not look like a healthy tick. Partial failure
+    // stays 200 by design; total failure is something being broken.
+    // The test .env carries a placeholder Resend key, so real delivery fails.
+    const user = await makeUser();
+    const roadmap = await makeRoadmap(user.id, {
+      startDate: '2020-01-01',
+      endDate: '2030-01-01',
+      sendTimeLocal: '00:01',
+    });
+    await appendItems(roadmap.id, [
+      { title: 'Two Sum', url: 'https://example.com/a', difficulty: 'EASY' },
+    ]);
+
+    const response = await cron(withSecret(process.env.CRON_SECRET ?? ''));
+
+    expect(response.status).toBeGreaterThanOrEqual(500);
+    expect(await response.json()).toMatchObject({ sent: 0, failed: 1 });
   });
 });

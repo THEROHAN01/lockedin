@@ -10,9 +10,6 @@ import { sendDailyDigests } from '@/usecases/send-daily-digests';
  * (ADR-006/007). Two mitigations: the Bearer secret controls who can trigger it,
  * and `force-dynamic` below means a cached 200 can never be served in place of
  * actually running the sweep.
- *
- * A per-roadmap failure is reported in the body, not as an HTTP error: the sweep
- * deliberately survives one roadmap failing, so the request itself succeeded.
  */
 export const dynamic = 'force-dynamic';
 
@@ -26,5 +23,19 @@ export async function GET(request: Request): Promise<Response> {
   }
 
   const result = await sendDailyDigests(new Date(), emailChannelFromEnv());
-  return Response.json(result);
+
+  /**
+   * Partial failure stays 200: the sweep deliberately survives one roadmap
+   * failing, so the request itself succeeded and the detail belongs in the body.
+   *
+   * A tick where every attempt failed is different — a revoked API key, say — and
+   * it must not look like a healthy run, because Vercel's cron monitoring keys off
+   * HTTP status. Without this branch a total outage is invisible at the platform
+   * level until a user notices no email arrived.
+   *
+   * An idle tick (nothing due) has `failed === 0` and stays 200.
+   */
+  const everythingFailed = result.sent === 0 && result.failed > 0;
+
+  return Response.json(result, { status: everythingFailed ? 503 : 200 });
 }

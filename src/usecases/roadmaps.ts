@@ -1,27 +1,23 @@
-import { daysInclusive, localDateFor } from '@/domain/dates';
-import { ValidationError } from '@/domain/errors';
-import { computeProgress } from '@/domain/progress';
-import type {
-  LocalDate,
-  LocalTime,
-  Progress,
-  Roadmap,
-  RoadmapItem,
-} from '@/domain/types';
-import { appendItems, countItems, listItems } from '@/data/items';
-import { countCompleted, listCompletedItemIds } from '@/data/progress';
+import { daysInclusive } from '@/domain/dates';
+import type { LocalDate, LocalTime, Roadmap, RoadmapItem } from '@/domain/types';
+import { appendItems } from '@/data/items';
 import {
   createRoadmap,
   findOwnedRoadmap,
   listRoadmapsByUser,
   updateOwnedRoadmap,
 } from '@/data/roadmaps';
+import { ValidationError } from '@/errors';
 import { csvUploadSource } from '@/sources/csv-source';
 
 /**
- * Orchestration. Everything here is ownership-scoped: `null` means the roadmap
- * is missing *or* belongs to someone else, and callers answer 404 for both so the
- * API cannot be used to discover which ids exist.
+ * The Roadmap aggregate: its own CRUD, and populating it with items.
+ *
+ * Reading and writing progress lives in `progress.ts`, not here.
+ *
+ * Everything is ownership-scoped: `null` means the roadmap is missing *or*
+ * belongs to someone else, and callers answer 404 for both so the API cannot be
+ * used to discover which ids exist.
  */
 
 export interface NewRoadmapInput {
@@ -35,8 +31,6 @@ export interface NewRoadmapInput {
 export type RoadmapPatchInput = Partial<NewRoadmapInput> & {
   status?: 'ACTIVE' | 'ARCHIVED';
 };
-
-export type ItemWithCompletion = RoadmapItem & { completed: boolean };
 
 function assertDateRange(startDate: LocalDate, endDate: LocalDate): void {
   if (daysInclusive(startDate, endDate) < 1) {
@@ -97,47 +91,4 @@ export async function addItemsFromCsv(
   // whole file parses.
   const parsed = await csvUploadSource.read(csv);
   return appendItems(roadmapId, parsed);
-}
-
-/**
- * `completed` is derived here rather than stored on the item: completion is an
- * event, and `RoadmapItem` stays a description of the item itself.
- */
-export async function listItemsWithCompletionFor(
-  userId: string,
-  roadmapId: string,
-): Promise<ItemWithCompletion[] | null> {
-  const roadmap = await findOwnedRoadmap(roadmapId, userId);
-  if (roadmap === null) return null;
-
-  const [items, completedIds] = await Promise.all([
-    listItems(roadmapId),
-    listCompletedItemIds(roadmapId),
-  ]);
-  const done = new Set(completedIds);
-
-  return items.map((item) => ({ ...item, completed: done.has(item.id) }));
-}
-
-export async function getProgressFor(
-  userId: string,
-  roadmapId: string,
-): Promise<Progress | null> {
-  const roadmap = await findOwnedRoadmap(roadmapId, userId);
-  if (roadmap === null) return null;
-
-  const [totalCount, completedCount] = await Promise.all([
-    countItems(roadmapId),
-    countCompleted(roadmapId),
-  ]);
-
-  return computeProgress({
-    completedCount,
-    totalCount,
-    startDate: roadmap.startDate,
-    endDate: roadmap.endDate,
-    // Reading the clock is this layer's job. The domain receives `today` as a
-    // value, which is what keeps it testable without mocking.
-    today: localDateFor(new Date(), roadmap.timezone),
-  });
 }

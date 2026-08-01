@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { ValidationError } from '@/domain/errors';
+import { ValidationError } from '@/errors';
 import { requireUserId } from '@/http/session';
 import { emailChannelFromEnv } from '@/notifications/from-env';
 import { markComplete } from '@/usecases/progress';
@@ -120,7 +120,8 @@ export async function setStatusAction(formData: FormData): Promise<void> {
 
 /**
  * Runs the sweep now so a real email lands in a real inbox while developing.
- * Mirrors /api/dev/send-now and is equally absent in production.
+ * Absent in production. Sweeps EVERY active roadmap, not just this one — it is
+ * the real sweep, and the roadmapId is only used to redirect back here.
  */
 export async function sendNowAction(formData: FormData): Promise<void> {
   await requireUserId();

@@ -1,6 +1,6 @@
 import { withUser } from '@/http/handler';
 import { notFound, ok } from '@/http/respond';
-import { getProgressFor } from '@/usecases/roadmaps';
+import { getProgressFor } from '@/usecases/progress';
 
 type Context = { params: Promise<{ id: string }> };
 

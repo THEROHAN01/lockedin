@@ -1,5 +1,5 @@
 import { parseCsv } from '@/domain/csv';
-import { ValidationError } from '@/domain/errors';
+import { ValidationError } from '@/errors';
 import type { ParsedItem } from '@/domain/types';
 import type { RoadmapSource } from './source';
 
