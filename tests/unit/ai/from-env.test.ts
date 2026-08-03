@@ -12,51 +12,39 @@ describe('aiProviderFromEnv', () => {
     expect(aiProviderFromEnv()).toBeNull();
   });
 
-  it('throws on an unrecognised AI_PROVIDER value', () => {
+  it('throws on an unrecognised AI_PROVIDER value, regardless of other vars', () => {
     vi.stubEnv('AI_PROVIDER', 'openai');
+    vi.stubEnv('AI_MODEL', '');
+    vi.stubEnv('AI_API_KEY', '');
 
     expect(() => aiProviderFromEnv()).toThrow(/openai/);
   });
 
-  describe('gateway', () => {
-    it('returns null when AI_MODEL is unset', () => {
-      vi.stubEnv('AI_PROVIDER', 'gateway');
-      vi.stubEnv('AI_MODEL', '');
+  for (const provider of ['gateway', 'sarvam']) {
+    describe(provider, () => {
+      it('returns null when AI_MODEL is unset', () => {
+        vi.stubEnv('AI_PROVIDER', provider);
+        vi.stubEnv('AI_MODEL', '');
+        vi.stubEnv('AI_API_KEY', 'key');
 
-      expect(aiProviderFromEnv()).toBeNull();
+        expect(aiProviderFromEnv()).toBeNull();
+      });
+
+      it('returns null when AI_API_KEY is unset', () => {
+        vi.stubEnv('AI_PROVIDER', provider);
+        vi.stubEnv('AI_MODEL', 'some-model');
+        vi.stubEnv('AI_API_KEY', '');
+
+        expect(aiProviderFromEnv()).toBeNull();
+      });
+
+      it('returns a provider when both are set', () => {
+        vi.stubEnv('AI_PROVIDER', provider);
+        vi.stubEnv('AI_MODEL', 'some-model');
+        vi.stubEnv('AI_API_KEY', 'key');
+
+        expect(aiProviderFromEnv()).not.toBeNull();
+      });
     });
-
-    it('returns a provider when AI_MODEL is set', () => {
-      vi.stubEnv('AI_PROVIDER', 'gateway');
-      vi.stubEnv('AI_MODEL', 'anthropic/claude-sonnet-5');
-
-      expect(aiProviderFromEnv()).not.toBeNull();
-    });
-  });
-
-  describe('sarvam', () => {
-    it('returns null when only the API key is set', () => {
-      vi.stubEnv('AI_PROVIDER', 'sarvam');
-      vi.stubEnv('SARVAM_API_KEY', 'key');
-      vi.stubEnv('SARVAM_MODEL', '');
-
-      expect(aiProviderFromEnv()).toBeNull();
-    });
-
-    it('returns null when only the model is set', () => {
-      vi.stubEnv('AI_PROVIDER', 'sarvam');
-      vi.stubEnv('SARVAM_API_KEY', '');
-      vi.stubEnv('SARVAM_MODEL', 'sarvam-105b');
-
-      expect(aiProviderFromEnv()).toBeNull();
-    });
-
-    it('returns a provider when both are set', () => {
-      vi.stubEnv('AI_PROVIDER', 'sarvam');
-      vi.stubEnv('SARVAM_API_KEY', 'key');
-      vi.stubEnv('SARVAM_MODEL', 'sarvam-105b');
-
-      expect(aiProviderFromEnv()).not.toBeNull();
-    });
-  });
+  }
 });

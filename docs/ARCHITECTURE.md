@@ -181,10 +181,15 @@ export interface AiProvider {
 ```
 
 Two implementations. `createGatewayProvider` calls the Vercel AI SDK's Gateway; `createSarvamProvider`
-calls Sarvam's chat completion API directly (ADR-016). Both take a plain string `model`, so swapping
-models — or, via `AI_PROVIDER`, swapping which of the two is used at all — is a config change, not a
-code change. `FakeAiProvider` implements the interface by recording every prompt in an array and can
-be told to reject, the same shape as `FakeChannel`.
+calls Sarvam's chat completion API directly (ADR-016). Both take the same `{ apiKey, model }` shape,
+so swapping models — or, via `AI_PROVIDER`, swapping which of the two is used at all — is a config
+change, not a code change. `FakeAiProvider` implements the interface by recording every prompt in an
+array and can be told to reject, the same shape as `FakeChannel`.
+
+Configuration is three variables, generic across providers rather than one set per provider:
+`AI_PROVIDER` picks the implementation, `AI_MODEL` and `AI_API_KEY` are handed to whichever one that
+is (ADR-018). There is no `SARVAM_*`- or `GATEWAY_*`-prefixed variable to remember, and adding a third
+provider needs no new variable names, only a new factory and one more branch in `from-env.ts`.
 
 `aiProviderFromEnv` deliberately does **not** match `emailChannelFromEnv`'s fail-loudly shape: email
 is mandatory to the product's job, so a missing value throws immediately. AI is best-effort — a

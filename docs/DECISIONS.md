@@ -625,3 +625,55 @@ specifically), Alternatives considered, Consequences.
   the once-per-day cache this ADR declined to build now, not bounded
   concurrency alone — concurrency parallelises the calls, it doesn't reduce
   their count.
+
+---
+
+## ADR-018: One generic `AI_MODEL` / `AI_API_KEY`, not one pair per provider
+
+- **Status:** Accepted
+- **Context:** ADR-016 gave each provider its own variable names —
+  `AI_GATEWAY_API_KEY`/`AI_MODEL` for Gateway, `SARVAM_API_KEY`/`SARVAM_MODEL`
+  for Sarvam — selected by `AI_PROVIDER`. In review, that read as two
+  simultaneous credential blocks sitting in one `.env`, and it wasn't obvious
+  at a glance that only one is ever active; a first fix made each block's
+  comment say explicitly which `AI_PROVIDER` value activates it, but the
+  underlying shape — N providers means 2N provider-specific variables,
+  n-1 of them always unused — was the actual source of the confusion, not
+  the comments describing it.
+- **Decision:** Collapse to exactly three variables, all generic:
+  `AI_PROVIDER`, `AI_MODEL`, `AI_API_KEY`. `createGatewayProvider` and
+  `createSarvamProvider` already took the same `{ apiKey, model }` shape
+  (ADR-016); `createGatewayProvider` is the one change — it now calls
+  `createGateway({ apiKey })` from the `ai` package explicitly instead of
+  relying on the SDK reading `AI_GATEWAY_API_KEY` from the environment
+  itself, so its `apiKey` is injected the same way Sarvam's already was.
+  Switching providers means changing all three variables together, in place
+  — there is no second block to comment out.
+- **Why:**
+  - **The variable names were never provider-facing information worth
+    keeping.** `AI_MODEL` and `AI_API_KEY` mean the same thing for every
+    provider — "the model id" and "the credential" — so a provider prefix
+    on the name encoded no information beyond what `AI_PROVIDER` already
+    says. Keeping it just meant more names to keep in sync by hand.
+  - **This is the more honest shape for "add a provider, make it
+    configurable which one" (the actual requirement).** With N
+    provider-specific pairs, adding a provider means a new pair of variable
+    names *and* remembering the old pair is now dead weight to leave or
+    remove. With three generic variables, adding a provider is one new
+    `create*Provider` factory and one new `if` branch in `from-env.ts` —
+    nothing in `.env` changes shape at all.
+  - **Consistent with, not a reversal of, ADR-016's real point.** ADR-016's
+    actual decision was the explicit `AI_PROVIDER` selector over an implicit
+    "whichever key is present" fallback chain; that stands unchanged. Only
+    the variable-naming choice underneath it was wrong.
+- **Alternatives considered:** *Keep per-provider variables, just document
+  harder* — tried first (clearer comments on which block is active); rejected
+  as treating a shape problem as a documentation problem. *A JSON blob env
+  var (`AI_CONFIG={"provider":"sarvam",...}`)* — rejected, it trades three
+  greppable variables any `.env` tool understands for one that needs parsing,
+  for no benefit at this size.
+- **Consequences:** A provider whose SDK insists on reading its own
+  environment variable internally (rather than accepting an explicit
+  `apiKey`, as both current providers do) won't fit this shape without a
+  small adapter — cross that bridge if a third provider actually needs it,
+  rather than generalising for it now.
