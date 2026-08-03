@@ -1,6 +1,8 @@
 @import 'tailwindcss';
 @import '../src/styles/tokens.css';
 @import '../src/styles/base.css';
+@import 'fumadocs-ui/css/neutral.css';
+@import 'fumadocs-ui/css/preset.css';
 
 /*
  * Expose the semantic tokens as Tailwind utilities: bg-bg, text-ink,

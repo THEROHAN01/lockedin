@@ -677,3 +677,68 @@ specifically), Alternatives considered, Consequences.
   `apiKey`, as both current providers do) won't fit this shape without a
   small adapter — cross that bridge if a third provider actually needs it,
   rather than generalising for it now.
+
+---
+
+## ADR-019: Fumadocs pinned below latest, and below its own declared peer range
+
+- **Status:** Accepted (revisit when the app moves to Next.js 16)
+- **Context:** A documentation site (`/docs`, `app/docs/**`) was added using
+  Fumadocs. Its packages — `fumadocs-ui`, `fumadocs-core`, `fumadocs-mdx` — are
+  on a fast-moving major-version cadence, and their latest releases
+  (`fumadocs-ui`/`fumadocs-core` 16.x) declare a peer dependency on
+  `next: 16.x.x` only. This app is on Next.js 15.5.22 (ADR-001); a Next major
+  upgrade is a separate concern from adding a docs page and was out of scope
+  here.
+- **Decision:** Pin to `fumadocs-ui@15.8.5`, `fumadocs-core@15.8.5`, and
+  `fumadocs-mdx@12.0.3` — not `latest`, and not the newest release in
+  `fumadocs-mdx`'s own major-version line that claims Next 15 support.
+  `fumadocs-ui`/`fumadocs-core@15.8.5` is the last release in the 15.x line
+  before it moved to requiring Next 16 (`16.0.0`, published two weeks later).
+  `fumadocs-mdx@12.0.3` is the last release published *before*
+  `fumadocs-core@16.0.0` and `fumadocs-mdx@13.0.0` shipped together as a
+  coordinated cutover, on the same day.
+- **Why:**
+  - **`fumadocs-mdx`'s peer range is not a reliable compatibility signal.**
+    Every `fumadocs-mdx` release from `13.0.0` through the current `15.2.2`
+    declares `peerDependencies.fumadocs-core: '^16.7.0'` — correctly reflecting
+    that it needs Next 16-era `fumadocs-core`. But `14.3.2` specifically was
+    tried first, on the theory that its `next: '^15.3.0 || ^16.0.0'` peer range
+    meant Next-15 support; installing it against `fumadocs-core@15.8.5` and
+    running the generator crashed with `ERR_MODULE_NOT_FOUND` on
+    `fumadocs-core/dist/content/md/frontmatter.js` — a module that was only
+    ever added in `fumadocs-core@16.0.0`. The declared `next` peer range was
+    real, but it did not imply the `fumadocs-core` internals actually being
+    imported were 15.x-compatible. Release timestamps, not declared peer
+    ranges, were what actually located a working combination:
+    `fumadocs-core@15.8.5` (2025-10-08) and `fumadocs-mdx@12.0.3` (2025-10-06)
+    are from before the coordinated `16.0.0`/`13.0.0` cutover
+    (both 2025-10-22); everything after that date assumes the new core.
+  - **This also means the newer "collections" import convention doesn't
+    apply.** `fumadocs-mdx@14`+ generates multiple entry files under
+    `.source/`, imported via a `collections/*` path alias (`import { docs }
+    from 'collections/server'`) — this is what upstream's current manual-
+    installation guide shows. `fumadocs-mdx@12.0.3` predates that change: it
+    generates a single `.source/index.ts` barrel, imported directly
+    (`app/docs/source.ts` does `import { docs } from '../../.source'`). A
+    `@/.source`-style alias was not an option either way — `@/*` in this
+    repo's `tsconfig.json` already means `./src/*` (ADR-001's TypeScript
+    path convention), so the relative import avoids colliding with it rather
+    than introducing a second meaning for `@/`.
+  - **Package-manager warnings about newer versions being available are
+    expected here and should not be "fixed"** by bumping `fumadocs-mdx` back
+    up — that is precisely the direction that reintroduces the
+    `fumadocs-core@16.x`-only import.
+- **Alternatives considered:** *Upgrade the app to Next.js 16* so `latest` of
+  everything could be used — rejected as out of scope for adding a docs page;
+  it is a real upgrade with its own testing surface (see ADR-001, ADR-007) and
+  deserves its own change. *Use `fumadocs-mdx@14.3.2` or `15.2.2`* against a
+  pinned `fumadocs-core@15.8.5`, accepting the peer-range mismatch as a
+  harmless warning — rejected once shown to be a runtime crash, not a warning.
+- **Consequences:** Bumping any of the three Fumadocs packages independently
+  risks reintroducing this break; they should be upgraded together, and only
+  as part of (or after) a Next.js 16 upgrade. Until then, `pnpm outdated`
+  correctly showing newer versions available for all three is expected and
+  not a signal to update. The next person to touch this should re-derive the
+  compatible triple from package registry release timestamps the same way,
+  rather than trusting peer-range declarations alone.

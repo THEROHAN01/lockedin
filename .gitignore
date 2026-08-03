@@ -17,6 +17,9 @@ coverage/
 *.tsbuildinfo
 next-env.d.ts
 
+# fumadocs-mdx generated collections
+.source/
+
 # editor / os
 .DS_Store
 .idea/
