@@ -168,9 +168,52 @@ hr {
     background 0.08s,
     color 0.08s;
 }
-.lk-btn:hover {
+/* Scoped with :not(:disabled) so a button waiting on its Server Action does not
+ * light up under the cursor as though it were still pressable. */
+.lk-btn:not(:disabled):hover {
   background: var(--ink);
   color: var(--bg);
+}
+
+/*
+ * The in-flight state, set by SubmitButton while its form is pending.
+ *
+ * `progress` rather than `wait`: the page is still usable, it is this one action
+ * that is busy. The dimming is deliberately mild — the button still has to be
+ * readable, because its label is what says what is happening.
+ */
+.lk-btn:disabled {
+  cursor: progress;
+  opacity: 0.7;
+}
+
+/*
+ * A square, not a circle: the border radius in this system is 0 everywhere, and
+ * a lone rounded element reads as borrowed from somewhere else. `currentColor`
+ * means it inherits whatever the button variant sets, so it needs no variant of
+ * its own.
+ */
+.lk-spinner {
+  width: 0.72em;
+  height: 0.72em;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  animation: lk-spin 0.7s linear infinite;
+}
+
+@keyframes lk-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Motion is decoration here — the label and the disabled state already carry the
+ * meaning — so it is safe to drop entirely. */
+@media (prefers-reduced-motion: reduce) {
+  .lk-spinner {
+    animation: none;
+    opacity: 0.5;
+  }
 }
 
 /*
@@ -185,7 +228,7 @@ hr {
   border-color: var(--accent);
   color: var(--accent-ink);
 }
-.lk-btn-primary:hover {
+.lk-btn-primary:not(:disabled):hover {
   background: var(--accent-hover);
   border-color: var(--accent-hover);
   color: var(--accent-ink);

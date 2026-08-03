@@ -9,6 +9,7 @@ import {
   updateDatesAction,
   uploadCsvAction,
 } from '../../actions';
+import { SubmitButton } from '../../../submit-button';
 
 export default async function RoadmapDetailPage({
   params,
@@ -114,9 +115,7 @@ export default async function RoadmapDetailPage({
                   <form action={markCompleteAction}>
                     <input type="hidden" name="roadmapId" value={roadmap.id} />
                     <input type="hidden" name="itemId" value={item.id} />
-                    <button className="lk-btn" type="submit">
-                      Mark solved
-                    </button>
+                    <SubmitButton pendingLabel="Saving">Mark solved</SubmitButton>
                   </form>
                 )}
               </li>
@@ -139,9 +138,13 @@ export default async function RoadmapDetailPage({
             required
             defaultValue={'Two Sum,https://leetcode.com/problems/two-sum,EASY'}
           />
-          <button className="lk-btn lk-btn-primary" type="submit" style={{ justifySelf: 'start' }}>
+          <SubmitButton
+            className="lk-btn lk-btn-primary"
+            pendingLabel="Appending"
+            style={{ justifySelf: 'start' }}
+          >
             Append
-          </button>
+          </SubmitButton>
         </form>
       </section>
 
@@ -166,9 +169,9 @@ export default async function RoadmapDetailPage({
             <span className="lk-label">Daily send time</span>
             <input className="lk-input" type="time" name="sendTimeLocal" defaultValue={roadmap.sendTimeLocal} required />
           </label>
-          <button className="lk-btn" type="submit" style={{ justifySelf: 'start' }}>
+          <SubmitButton pendingLabel="Saving" style={{ justifySelf: 'start' }}>
             Save
-          </button>
+          </SubmitButton>
         </form>
       </section>
 
@@ -184,9 +187,7 @@ export default async function RoadmapDetailPage({
             </p>
             <form action={sendNowAction}>
               <input type="hidden" name="roadmapId" value={roadmap.id} />
-              <button className="lk-btn" type="submit">
-                Run sweep
-              </button>
+              <SubmitButton pendingLabel="Sweeping">Run sweep</SubmitButton>
             </form>
           </section>
         </>

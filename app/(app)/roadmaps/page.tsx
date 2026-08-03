@@ -3,6 +3,7 @@ import { requireUserId } from '@/http/session';
 import { listRoadmapsFor } from '@/usecases/roadmaps';
 import { signOutAction } from '../../(auth)/actions';
 import { createRoadmapAction, setStatusAction } from '../actions';
+import { SubmitButton } from '../../submit-button';
 import { TimezoneField } from './timezone-field';
 
 export default async function RoadmapsPage({
@@ -26,9 +27,7 @@ export default async function RoadmapsPage({
           <h2 style={{ marginBottom: 0 }}>Roadmaps</h2>
         </div>
         <form action={signOutAction}>
-          <button className="lk-btn" type="submit">
-            Sign out
-          </button>
+          <SubmitButton pendingLabel="Signing out">Sign out</SubmitButton>
         </form>
       </header>
 
@@ -74,9 +73,11 @@ export default async function RoadmapsPage({
                   name="status"
                   value={roadmap.status === 'ARCHIVED' ? 'ACTIVE' : 'ARCHIVED'}
                 />
-                <button className="lk-btn" type="submit">
+                <SubmitButton
+                  pendingLabel={roadmap.status === 'ARCHIVED' ? 'Unarchiving' : 'Archiving'}
+                >
                   {roadmap.status === 'ARCHIVED' ? 'Unarchive' : 'Archive'}
-                </button>
+                </SubmitButton>
               </form>
             </li>
           ))}
@@ -104,9 +105,9 @@ export default async function RoadmapsPage({
           <input className="lk-input" type="time" name="sendTimeLocal" required defaultValue="07:00" />
         </label>
         <TimezoneField />
-        <button className="lk-btn lk-btn-primary" type="submit">
+        <SubmitButton className="lk-btn lk-btn-primary" pendingLabel="Creating">
           Create
-        </button>
+        </SubmitButton>
       </form>
     </main>
   );

@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { signUpAction } from '../actions';
+import { SubmitButton } from '../../submit-button';
 
 export default async function SignUpPage({
   searchParams,
@@ -39,9 +40,9 @@ export default async function SignUpPage({
             autoComplete="new-password"
           />
         </label>
-        <button className="lk-btn lk-btn-primary" type="submit">
+        <SubmitButton className="lk-btn lk-btn-primary" pendingLabel="Creating account">
           Create account
-        </button>
+        </SubmitButton>
       </form>
 
       <p style={{ marginTop: 24 }}>
