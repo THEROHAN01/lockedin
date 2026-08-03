@@ -169,6 +169,34 @@ calls an LLM over the network; if the interface were declared sync because that 
 today, adding it later would change the interface, both implementations, and every call site. Async
 now costs one `Promise` wrapper and removes that future churn.
 
+### Seam: AI provider
+
+A durable corner for invoking a model from anywhere in the codebase, ahead of any specific feature
+needing it (ADR-015). That seam is `AiProvider`:
+
+```ts
+export interface AiProvider {
+  generateText(prompt: string): Promise<string>;
+}
+```
+
+`createGatewayProvider` implements it over the Vercel AI SDK's Gateway — a model is a plain string
+(`"anthropic/claude-sonnet-5"`), so swapping models or providers later is a config change, not a code
+change. `FakeAiProvider` implements it by recording every prompt in an array and can be told to
+reject, the same shape as `FakeChannel`.
+
+`aiProviderFromEnv` deliberately does **not** match `emailChannelFromEnv`'s fail-loudly shape: email
+is mandatory to the product's job, so a missing value throws immediately. AI has no consumer yet and
+is best-effort infrastructure, so a missing value returns `null` — every future call site is required
+to treat that as a normal, expected state and fall back rather than propagate the failure.
+
+One honest caveat: nothing calls this yet. The first intended consumer is the daily quote — currently
+`quoteForDate` in `src/domain/digest.ts`, a deterministic static table — but wiring that up is a
+separate decision, not yet made, about call cadence: generating one quote per calendar day (shared
+across every roadmap, matching today's behaviour, but needing a small persisted cache) versus one per
+roadmap-send (simpler, but adds a network call to the per-roadmap cost §6 already tracks against the
+concurrency threshold). See ADR-015.
+
 ---
 
 ## 3. Data model
@@ -613,6 +641,11 @@ would otherwise fail a test:
 A type-only Prisma import in the domain adds no runtime I/O, so no test would catch it — but it
 couples the domain to the schema and defeats the layer. Hence lint, not review.
 
+**All of it runs in CI** — `.github/workflows/ci.yml`, on every push and pull request. A rule chosen
+because a machine can check it is worth nothing until a machine checks it on every change, and none
+of these survive being someone's responsibility to remember. The integration job supplies its own
+Postgres as a service container, so the checks need no credentials and run on a fork's PR.
+
 ---
 
 ## 9. Repository layout
@@ -638,6 +671,11 @@ src/
   sources/
     source.ts                 RoadmapSource interface (async)
     csv-source.ts             CsvUploadSource
+  ai/
+    provider.ts               AiProvider interface — one method, text in/out
+    gateway-provider.ts       Vercel AI SDK Gateway implementation
+    fake-provider.ts          in-memory + injectable failure, tests only
+    from-env.ts               returns null if unset — AI has no consumer yet
   usecases/                   orchestration — the only place with clock + DB
     send-daily-digests.ts     sendDailyDigests + sendDigestForRoadmap
     roadmaps.ts

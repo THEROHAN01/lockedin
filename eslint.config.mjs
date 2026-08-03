@@ -73,6 +73,7 @@ export default tseslint.config(
                 '@/notifications/**',
                 '@/sources/**',
                 '@/emails/**',
+                '@/ai/**',
               ],
               message:
                 'Dependencies point inward. src/domain is the innermost layer and imports nothing from outer layers.',
@@ -83,7 +84,7 @@ export default tseslint.config(
                 'src/domain is framework-agnostic. Anything needing Next or React belongs in an outer layer.',
             },
             {
-              group: ['resend', 'better-auth', 'better-auth/**'],
+              group: ['resend', 'better-auth', 'better-auth/**', '/ai', '/ai/**'],
               message: 'src/domain must not depend on a vendor SDK.',
             },
           ],
