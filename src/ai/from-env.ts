@@ -5,10 +5,11 @@ import type { AiProvider } from './provider';
 /**
  * The production provider, wired from environment variables — deliberately
  * not the same shape as `emailChannelFromEnv`. Email is mandatory to the
- * product's job, so a missing value there fails loudly. AI has no consumer
- * yet and is best-effort infrastructure, so a missing value here is a normal,
- * expected state: this returns `null` rather than throwing, and every call
- * site is required to treat `null` as "fall back to the non-AI default."
+ * product's job, so a missing value there fails loudly. AI is best-effort
+ * infrastructure — the daily quote falls back to a static table if this
+ * returns `null` (ADR-017) — so a missing value here is a normal, expected
+ * state: this returns `null` rather than throwing, and every call site is
+ * required to treat `null` as "fall back to the non-AI default."
  *
  * `AI_PROVIDER` picks which implementation to build, rather than inferring it
  * from which keys happen to be set — an implicit "whichever key is present
