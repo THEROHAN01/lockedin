@@ -66,6 +66,12 @@ would catch: `src/domain/**` cannot import Prisma (**including `import type`**),
 an outer layer, a framework, or a vendor SDK, and cannot call `new Date()` or
 `Date.now()`; and `app/**` cannot reach past `src/usecases` into `src/data`.
 
+All of the above runs on every push and pull request — `.github/workflows/ci.yml`,
+which also builds the app. The integration job brings up its own throwaway
+Postgres, so it needs no secrets and works on a fork's PR. Nothing in CI reads
+your `.env`: the suite takes `TEST_DATABASE_URL` from the environment, and the
+workflow supplies placeholders for the rest.
+
 ## Seeing a real email
 
 The daily send is normally triggered by Vercel Cron every 15 minutes. Locally,

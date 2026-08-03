@@ -1,8 +1,9 @@
 # Local Postgres for development and integration tests.
 #
 # Production and preview run on Neon (ADR-003). This exists because integration
-# tests against a local instance are faster and work offline; CI uses a Neon
-# branch. Port 5433 to avoid colliding with a system Postgres on 5432.
+# tests against a local instance are faster and work offline; CI uses a throwaway
+# service container, which needs no credentials and so works on a fork's pull
+# request. Port 5433 to avoid colliding with a system Postgres on 5432.
 services:
   db:
     image: postgres:16-alpine

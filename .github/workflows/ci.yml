@@ -1,0 +1,150 @@
+name: CI
+
+# Runs the checks that docs/ARCHITECTURE.md §8 says are mechanically enforced.
+#
+# That section is the reason this file exists. The domain-purity import rules,
+# the `new Date()` ban, the single-source-of-colour grep, and the OpenAPI path
+# check are all rules chosen *because* they can be checked by a machine rather
+# than remembered in review — which is worth nothing until a machine actually
+# runs them on every change.
+#
+# Split into two jobs on purpose. `static` needs nothing but Node, so a lint or
+# type error comes back in about a minute; `integration` waits on Postgres and
+# a migration. Neither blocks the other's feedback.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# A second push to the same branch makes the first run irrelevant. Cancel it —
+# unlike the daily sweep, nothing here has a side effect worth finishing.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # Node 20 is the floor declared in package.json `engines`. Pinned rather than
+  # resolved from that range so a new Node release cannot change what CI tested
+  # without a commit saying so.
+  NODE_VERSION: '20'
+
+jobs:
+  static:
+    name: Lint, types, unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Reads the pinned version from package.json `packageManager`, so the
+      # lockfile is never resolved by a different pnpm than the one that wrote it.
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # Everything after this point needs the generated Prisma types to exist,
+      # including `tsc`. It touches no database.
+      - run: pnpm db:generate
+
+      # `--no-warnings` is deliberately absent: a lint warning that nobody sees
+      # is a lint rule nobody follows.
+      - run: pnpm lint
+
+      - run: pnpm lint:tokens
+
+      - run: pnpm typecheck
+
+      # No database, no network, no clock — so this is the one suite that can run
+      # with nothing set up, and it is where the OpenAPI drift check lives.
+      - run: pnpm test:unit
+
+      # Catches what neither tests nor tsc can: a client/server boundary
+      # violation, a bad route export, a page that only fails while being
+      # rendered. Vercel would find these too, but at deploy time.
+      #
+      # The values below are placeholders that only need to be non-empty — the
+      # build evaluates modules that assert their config is present. Nothing here
+      # is a credential, and nothing here reaches a real service.
+      - name: Build
+        env:
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci?schema=public
+          BETTER_AUTH_SECRET: ci-placeholder-not-a-real-secret
+          BETTER_AUTH_URL: http://localhost:3000
+          RESEND_API_KEY: re_ci_placeholder
+          EMAIL_FROM: LockedIn <ci@example.com>
+          CRON_SECRET: ci-placeholder-not-a-real-secret
+        run: pnpm build
+
+  integration:
+    name: Integration tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    # A service container rather than a hosted branch: it needs no credentials,
+    # so it works on a fork's pull request, and it is thrown away with the runner
+    # rather than leaking databases when a run is cancelled.
+    #
+    # `lockedin_test` is created by name here. Locally the same database is made
+    # by scripts/init-test-db.sql on first boot of the compose service, because
+    # there it has to coexist with the development database on one instance.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: lockedin
+          POSTGRES_PASSWORD: lockedin
+          POSTGRES_DB: lockedin_test
+        ports:
+          - 5432:5432
+        # Without this the first migration can race the server's own startup.
+        options: >-
+          --health-cmd "pg_isready -U lockedin -d lockedin_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      # The suite redirects DATABASE_URL to TEST_DATABASE_URL before any Prisma
+      # client is constructed (tests/helpers/env.ts), and the global setup runs
+      # `prisma migrate deploy` against it. Both read the environment directly, so
+      # no .env file is needed here.
+      TEST_DATABASE_URL: postgresql://lockedin:lockedin@localhost:5432/lockedin_test?schema=public
+      DATABASE_URL: postgresql://lockedin:lockedin@localhost:5432/lockedin_test?schema=public
+      BETTER_AUTH_SECRET: ci-placeholder-not-a-real-secret
+      BETTER_AUTH_URL: http://localhost:3000
+      # A placeholder key on purpose. One cron test asserts that a tick where
+      # every send failed answers 5xx, and it gets that failure from Resend
+      # rejecting the request. A real key here would break that test, not help it.
+      RESEND_API_KEY: re_ci_placeholder
+      EMAIL_FROM: LockedIn <ci@example.com>
+      CRON_SECRET: ci-placeholder-not-a-real-secret
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm db:generate
+
+      # Migrations are applied by the suite's own global setup, with
+      # `migrate deploy` — so a run can never generate a migration or reset the
+      # database on drift. It fails loudly instead, which is what CI wants.
+      - run: pnpm test:integration
