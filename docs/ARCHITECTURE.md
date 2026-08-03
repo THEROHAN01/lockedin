@@ -180,22 +180,24 @@ export interface AiProvider {
 }
 ```
 
-`createGatewayProvider` implements it over the Vercel AI SDK's Gateway — a model is a plain string
-(`"anthropic/claude-sonnet-5"`), so swapping models or providers later is a config change, not a code
-change. `FakeAiProvider` implements it by recording every prompt in an array and can be told to
-reject, the same shape as `FakeChannel`.
+Two implementations. `createGatewayProvider` calls the Vercel AI SDK's Gateway; `createSarvamProvider`
+calls Sarvam's chat completion API directly (ADR-016). Both take a plain string `model`, so swapping
+models — or, via `AI_PROVIDER`, swapping which of the two is used at all — is a config change, not a
+code change. `FakeAiProvider` implements the interface by recording every prompt in an array and can
+be told to reject, the same shape as `FakeChannel`.
 
 `aiProviderFromEnv` deliberately does **not** match `emailChannelFromEnv`'s fail-loudly shape: email
-is mandatory to the product's job, so a missing value throws immediately. AI has no consumer yet and
-is best-effort infrastructure, so a missing value returns `null` — every future call site is required
-to treat that as a normal, expected state and fall back rather than propagate the failure.
+is mandatory to the product's job, so a missing value throws immediately. AI is best-effort — a
+missing `AI_PROVIDER` returns `null`, and every call site is required to treat that as a normal,
+expected state and fall back rather than propagate the failure. An `AI_PROVIDER` set to something
+neither implementation recognises still throws — that is a typo, not an absence of configuration.
 
-One honest caveat: nothing calls this yet. The first intended consumer is the daily quote — currently
-`quoteForDate` in `src/domain/digest.ts`, a deterministic static table — but wiring that up is a
-separate decision, not yet made, about call cadence: generating one quote per calendar day (shared
-across every roadmap, matching today's behaviour, but needing a small persisted cache) versus one per
-roadmap-send (simpler, but adds a network call to the per-roadmap cost §6 already tracks against the
-concurrency threshold). See ADR-015.
+The first and, so far, only consumer is the daily quote. `resolveDailyQuote` (`src/usecases/quote.ts`)
+calls `AiProvider.generateText` with a fixed motivational prompt and falls back to the static
+`quoteForDate` table in `src/domain/digest.ts` on `null`, an empty response, or a thrown error — ADR-017.
+Generation happens once per roadmap-send, not once per calendar day shared across every roadmap; §6's
+per-roadmap cost budget now includes it, and that tradeoff is recorded in ADR-017 rather than decided
+implicitly.
 
 ---
 
@@ -496,6 +498,12 @@ strain a default serverless duration budget, and with realistic send-time
 clustering that can arrive at a **total** of only a few hundred to ~1,000 active
 roadmaps.
 
+With `AI_PROVIDER` set, that per-roadmap cost gains a second network call —
+`resolveDailyQuote` runs once per roadmap-send, not once per day (ADR-017) — which
+narrows the margin above before `S ≈ 100–150` is reached. Nothing to do about it
+below that trigger; above it, batching the quote to once per calendar day is the
+documented option, not a rewrite.
+
 The documented trigger for adding concurrency is deliberately much earlier —
 **~25 due-and-unsent in one window** — so there is a 4–6× margin before the real
 cliff. Do not pre-empt it, and do not measure the wrong thing: instrument the
@@ -674,10 +682,12 @@ src/
   ai/
     provider.ts               AiProvider interface — one method, text in/out
     gateway-provider.ts       Vercel AI SDK Gateway implementation
+    sarvam-provider.ts        Sarvam chat-completions implementation
     fake-provider.ts          in-memory + injectable failure, tests only
-    from-env.ts               returns null if unset — AI has no consumer yet
+    from-env.ts               AI_PROVIDER selects gateway/sarvam; null if unset
   usecases/                   orchestration — the only place with clock + DB
     send-daily-digests.ts     sendDailyDigests + sendDigestForRoadmap
+    quote.ts                  resolveDailyQuote — AiProvider, falls back to quoteForDate
     roadmaps.ts
     progress.ts
   emails/DailyDigest.tsx      React Email template

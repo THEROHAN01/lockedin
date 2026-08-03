@@ -46,9 +46,9 @@ export function buildDigest(input: {
   roadmapName: string;
   items: readonly RoadmapItem[];
   progress: Progress;
-  today: LocalDate;
+  quote: string;
 }): DailyDigest {
-  const { roadmapName, items, progress, today } = input;
+  const { roadmapName, items, progress, quote } = input;
 
   if (items.length === 0) {
     throw new Error(
@@ -66,6 +66,6 @@ export function buildDigest(input: {
       difficulty,
     })),
     progress,
-    quote: quoteForDate(today),
+    quote,
   };
 }

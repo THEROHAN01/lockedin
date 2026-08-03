@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { aiProviderFromEnv } from '@/ai/from-env';
 import { ValidationError } from '@/errors';
 import { requireUserId } from '@/http/session';
 import { emailChannelFromEnv } from '@/notifications/from-env';
@@ -133,7 +134,11 @@ export async function sendNowAction(formData: FormData): Promise<void> {
 
   let outcome: string;
   try {
-    const result = await sendDailyDigests(new Date(), emailChannelFromEnv());
+    const result = await sendDailyDigests(
+      new Date(),
+      emailChannelFromEnv(),
+      aiProviderFromEnv(),
+    );
     outcome = `sent ${result.sent}, skipped ${result.skipped}, failed ${result.failed}`;
   } catch (error) {
     outcome = reasonFor(error);

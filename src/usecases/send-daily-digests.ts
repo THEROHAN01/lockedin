@@ -17,6 +17,8 @@ import {
 } from '@/data/roadmaps';
 import { findSentKeys, recordSend, releaseSend, sentKey } from '@/data/send-log';
 import type { NotificationChannel } from '@/notifications/channel';
+import type { AiProvider } from '@/ai/provider';
+import { resolveDailyQuote } from './quote';
 
 /**
  * The daily sweep.
@@ -28,6 +30,10 @@ import type { NotificationChannel } from '@/notifications/channel';
  * the try/catch belongs around the pipeline, not inside it.
  *
  * `now` is a parameter, not a clock read, so every case is deterministic in tests.
+ *
+ * `aiProvider` defaults to `null` — every existing call and test keeps working
+ * unchanged — and only affects what `resolveDailyQuote` puts in the digest's
+ * `quote` field (ADR-017); nothing else here depends on it.
  */
 
 export interface SweepResult {
@@ -39,6 +45,7 @@ export interface SweepResult {
 export async function sendDailyDigests(
   now: Date,
   channel: NotificationChannel,
+  aiProvider: AiProvider | null = null,
 ): Promise<SweepResult> {
   const roadmaps = await listActiveRoadmapsWithRecipient();
   if (roadmaps.length === 0) return { sent: 0, skipped: 0, failed: 0 };
@@ -77,7 +84,8 @@ export async function sendDailyDigests(
     if (alreadySent.has(sentKey(roadmap.id, localDate))) continue;
 
     try {
-      if (await sendDigestForRoadmap(roadmap, localDate, channel)) sent += 1;
+      if (await sendDigestForRoadmap(roadmap, localDate, channel, aiProvider))
+        sent += 1;
     } catch (error) {
       // Caught so one roadmap's problem is not everyone else's; the claim has
       // already been released. But not swallowed silently — without this line a
@@ -101,6 +109,7 @@ export async function sendDigestForRoadmap(
   roadmap: ActiveRoadmap,
   localDate: LocalDate,
   channel: NotificationChannel,
+  aiProvider: AiProvider | null = null,
 ): Promise<boolean> {
   const outstanding = await listOutstandingItems(roadmap.id);
 
@@ -121,6 +130,7 @@ export async function sendDigestForRoadmap(
   const chosen = selectItemsForToday(outstanding, quota);
 
   const totalCount = await countItems(roadmap.id);
+  const quote = await resolveDailyQuote(aiProvider, localDate);
   const digest = buildDigest({
     roadmapName: roadmap.name,
     items: chosen,
@@ -131,7 +141,7 @@ export async function sendDigestForRoadmap(
       endDate: roadmap.endDate,
       today: localDate,
     }),
-    today: localDate,
+    quote,
   });
 
   // Claim before sending. Two overlapping invocations would otherwise both pass a

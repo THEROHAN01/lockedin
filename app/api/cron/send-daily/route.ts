@@ -1,3 +1,4 @@
+import { aiProviderFromEnv } from '@/ai/from-env';
 import { unauthenticated } from '@/http/respond';
 import { emailChannelFromEnv } from '@/notifications/from-env';
 import { sendDailyDigests } from '@/usecases/send-daily-digests';
@@ -22,7 +23,11 @@ export async function GET(request: Request): Promise<Response> {
     return unauthenticated();
   }
 
-  const result = await sendDailyDigests(new Date(), emailChannelFromEnv());
+  const result = await sendDailyDigests(
+    new Date(),
+    emailChannelFromEnv(),
+    aiProviderFromEnv(),
+  );
 
   /**
    * Partial failure stays 200: the sweep deliberately survives one roadmap

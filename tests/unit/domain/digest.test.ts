@@ -54,7 +54,7 @@ describe('buildDigest', () => {
       roadmapName: 'Blind 75',
       items: [item(1)],
       progress: PROGRESS,
-      today: '2026-01-09',
+      quote: 'A test quote.',
     });
 
     // ROADMAP.md feature 5: title, link, difficulty, progress, a quote.
@@ -67,7 +67,7 @@ describe('buildDigest', () => {
       },
     ]);
     expect(digest.progress).toEqual(PROGRESS);
-    expect(digest.quote).toBe(quoteForDate('2026-01-09'));
+    expect(digest.quote).toBe('A test quote.');
   });
 
   it('carries a list, because the quota can exceed one', () => {
@@ -75,7 +75,7 @@ describe('buildDigest', () => {
       roadmapName: 'Blind 75',
       items: [item(1), item(2), item(3), item(4), item(5)],
       progress: PROGRESS,
-      today: '2026-01-09',
+      quote: 'A test quote.',
     });
     expect(digest.items).toHaveLength(5);
     expect(digest.items.map((i) => i.title)).toEqual([
@@ -92,7 +92,7 @@ describe('buildDigest', () => {
       roadmapName: 'Blind 75',
       items: [item(1)],
       progress: PROGRESS,
-      today: '2026-01-09',
+      quote: 'A test quote.',
     });
     expect(digest.items[0]).not.toHaveProperty('id');
     expect(digest.items[0]).not.toHaveProperty('position');
@@ -106,7 +106,7 @@ describe('buildDigest', () => {
         roadmapName: 'Blind 75',
         items: [],
         progress: PROGRESS,
-        today: '2026-01-09',
+        quote: 'A test quote.',
       }),
     ).toThrow();
   });

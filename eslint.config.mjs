@@ -84,7 +84,15 @@ export default tseslint.config(
                 'src/domain is framework-agnostic. Anything needing Next or React belongs in an outer layer.',
             },
             {
-              group: ['resend', 'better-auth', 'better-auth/**', '/ai', '/ai/**'],
+              group: [
+                'resend',
+                'better-auth',
+                'better-auth/**',
+                '/ai',
+                '/ai/**',
+                'sarvamai',
+                'sarvamai/**',
+              ],
               message: 'src/domain must not depend on a vendor SDK.',
             },
           ],

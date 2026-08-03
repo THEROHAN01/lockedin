@@ -98,6 +98,25 @@ delete the row:
 docker exec lockedin-db psql -U lockedin -d lockedin -c "DELETE FROM send_log;"
 ```
 
+## AI-generated quote (optional)
+
+The daily email's quote is a static, deterministic table by default (same
+quote for everyone on a given date — `quoteForDate` in `src/domain/digest.ts`).
+Setting `AI_PROVIDER` in `.env` switches it to a freshly generated one instead:
+
+```bash
+AI_PROVIDER="sarvam"
+SARVAM_API_KEY="..."       # https://dashboard.sarvam.ai
+SARVAM_MODEL="sarvam-105b" # already the default in .env.example
+```
+
+Or `AI_PROVIDER="gateway"` with `AI_GATEWAY_API_KEY` and `AI_MODEL` to use the
+Vercel AI Gateway instead (any model string it supports, not just Anthropic's).
+
+Leaving `AI_PROVIDER` unset — the default — keeps the static table; that also
+covers a provider outage or a bad key, since `resolveDailyQuote` falls back to
+it on any failure rather than let that block a send. See ADR-015/016/017.
+
 ## If the frontend breaks with `Cannot find module './705.js'`
 
 `pnpm dev` and `pnpm build` both write to `.next`, so running a build while the
@@ -170,6 +189,10 @@ or with `vercel env add <NAME> production`:
 
 `BETTER_AUTH_URL` must match the deployed origin exactly or sign-in silently
 fails to set a cookie.
+
+Optionally, add `AI_PROVIDER` and its matching keys (see "AI-generated quote"
+above) to switch the quote from the static table to a generated one in
+production too. Skip it and nothing changes.
 
 **4. Deploy.**
 
