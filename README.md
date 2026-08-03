@@ -31,6 +31,23 @@ openssl rand -base64 32       # CRON_SECRET
 `RESEND_API_KEY` can stay as the placeholder for everything except actually
 delivering mail — the test suite never sends.
 
+## Browsing the API
+
+Every endpoint, its request and response shapes, and its error cases are at
+**http://localhost:3000/api-docs** — Swagger UI, with a working "Try it out" for
+each one. Sign in through `POST /api/auth/sign-in/email` on that page first and
+the session cookie carries into everything after it.
+
+The document behind it is at `/api/openapi.json`, which is what to point a client
+generator or a Postman import at. It is generated from the code rather than
+maintained beside it: request bodies come from the same Zod schemas that validate
+them, response bodies are type-checked against the domain types the handlers
+return, and `pnpm test:unit` fails if a route exists with no entry in the
+document. `src/http/openapi.ts` has the details.
+
+The docs page loads Swagger UI from a pinned CDN build, so it needs network
+access; `/api/openapi.json` itself is served locally and works offline.
+
 ## Commands
 
 | | |

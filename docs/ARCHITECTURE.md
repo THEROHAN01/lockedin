@@ -484,6 +484,14 @@ fetch. Not worth a separate visit.
 
 Defined once, here, so six route handlers don't each invent a shape.
 
+The machine-readable form of this section is an OpenAPI 3.1 document at
+`/api/openapi.json`, rendered by Swagger UI at `/api-docs`. It is built in
+`src/http/openapi.ts` and is deliberately not a second source of truth: request
+bodies are `z.toJSONSchema` of the schemas `parseBody` actually runs, response
+bodies are declared `satisfies ZodType<T>` against the domain types the handlers
+return, and `tests/unit/http/openapi.test.ts` walks `app/api` and fails on a route
+with no entry. What follows is the reasoning; the document is the reference.
+
 | Endpoint | Verb | Success |
 |---|---|---|
 | `/api/roadmaps` | `POST` | `201` + the created roadmap |
@@ -591,8 +599,8 @@ with its secret; the harness UI has a session-authenticated action instead.
 
 ## 8. Enforced rules
 
-Two architectural rules are mechanically checked, because both are the kind that rot silently and
-neither would fail a test:
+Three rules are mechanically checked, because each is the kind that rots silently and none of them
+would otherwise fail a test:
 
 | Rule | Enforced by |
 |---|---|
@@ -600,6 +608,7 @@ neither would fail a test:
 | `src/domain/**` imports no Prisma (including `import type`), no outer layer, no framework, no vendor SDK | `eslint.config.mjs` — `no-restricted-imports`, scoped to `src/domain/**` |
 | `src/domain/**` contains no `new Date()` / `Date.now()` | `eslint.config.mjs` — `no-restricted-syntax` |
 | `app/**` does not import `src/data/**` directly | `eslint.config.mjs` — `no-restricted-imports`, scoped to `app/**` |
+| Every route handler under `app/api`, and every verb it exports, appears in the OpenAPI document | `tests/unit/http/openapi.test.ts` — walks the directory |
 
 A type-only Prisma import in the domain adds no runtime I/O, so no test would catch it — but it
 couples the domain to the schema and defeats the layer. Hence lint, not review.
