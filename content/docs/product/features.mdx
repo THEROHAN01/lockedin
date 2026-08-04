@@ -1,40 +1,68 @@
 ---
 title: Features
 description: Everything LockedIn ships today.
+icon: ListChecks
 ---
 
-## Sign in
+Eight features, and that is the whole product. Anything you don't find here
+isn't hidden — it's on the [roadmap](/docs/engineering/roadmap) with a version
+number against it.
 
-Authenticate to access your roadmap(s).
+## Setting up
 
-## Create a roadmap
+<Accordions type="multiple">
+  <Accordion title="Sign in">
+    Authenticate to reach your roadmap(s). A roadmap always belongs to exactly
+    one account.
+  </Accordion>
 
-A roadmap is a named, time-boxed plan: a name, a start date, an end date, and
-a daily email send time.
+  <Accordion title="Create a roadmap">
+    A roadmap is a named, time-boxed plan: a name, a start date, an end date,
+    and the time of day you want the email to arrive.
+  </Accordion>
 
-## Upload questions
+  <Accordion title="Upload questions">
+    Upload or curate the list of LeetCode problems that make up the roadmap.
+    Each problem has a title, a link, and a difficulty.
+  </Accordion>
 
-Upload or curate the list of LeetCode problems that make up the roadmap. Each
-problem has a title, a link, and a difficulty.
+  <Accordion title="Configure a roadmap">
+    Name, dates and send time are all editable after the fact. Nothing about
+    the schedule is precomputed, so an edit takes effect on the very next
+    email — there is no regeneration step to wait for.
+  </Accordion>
+</Accordions>
 
-## View progress
+## Day to day
 
-See a roadmap's progress in-app: problems completed out of the total, and
-days elapsed out of the total.
+<Accordions type="multiple">
+  <Accordion title="The daily email">
+    The centerpiece: one email per roadmap per day, carrying between one and
+    five problems. See [The daily email](/docs/product/daily-email) for how
+    that number is chosen and why it changes.
+  </Accordion>
 
-## Mark complete
+  <Accordion title="View progress">
+    See a roadmap's progress in-app: problems completed out of the total, and
+    days elapsed out of the total.
+  </Accordion>
 
-Mark a problem as solved. This is one-directional — un-marking a problem
-isn't supported yet. Progress is recorded as an append-only history, so this
-is a deliberate scope choice, not a technical limitation: adding "un-mark"
-later doesn't require losing that history.
+  <Accordion title="Mark complete">
+    Mark a problem as solved.
 
-## Archive a roadmap
+    <Callout type="info" title="One-directional, on purpose">
+      Un-marking a problem isn't supported yet. Progress is recorded as an
+      append-only history, so this is a scope choice rather than a technical
+      limitation — adding "un-mark" later doesn't cost that history.
+    </Callout>
+  </Accordion>
 
-Archive a roadmap to stop it nagging you, and unarchive it later. An archived
-roadmap keeps all its data — archiving doesn't delete anything.
+  <Accordion title="Archive a roadmap">
+    Archive a roadmap to stop it nagging you, and unarchive it later. An
+    archived roadmap keeps all of its data — archiving deletes nothing.
 
-## The daily email
-
-The centerpiece — see [The daily email](/docs/product/daily-email) for how
-many problems you get and why that number changes.
+    This is how a roadmap reaches a resting state: because the end date is a
+    goal rather than a deadline, an unfinished roadmap would otherwise keep
+    emailing you indefinitely.
+  </Accordion>
+</Accordions>

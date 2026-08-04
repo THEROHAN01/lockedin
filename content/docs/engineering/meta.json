@@ -1,4 +1,6 @@
 {
   "title": "Engineering",
+  "description": "How it is built, and why",
+  "icon": "Layers",
   "pages": ["architecture", "decisions", "roadmap"]
 }

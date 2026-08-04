@@ -1,18 +1,45 @@
 ---
 title: LockedIn
 description: A study-roadmap nagging tool for LeetCode.
+icon: Lock
 ---
+
+import { Layers, Rocket, SquareTerminal } from 'lucide-react';
 
 LockedIn is a study-roadmap nagging tool: upload a list of LeetCode problems
 with a date range and a daily send time, and a daily email keeps you on pace —
 adjusting the load automatically if you fall behind.
 
+<Callout title="Pre-v1.0">
+  Everything documented under **Product** ships today. Everything after it is on
+  the [roadmap](/docs/engineering/roadmap) as a numbered version, so "not yet"
+  and "not ever" are never the same answer.
+</Callout>
+
 ## Where to go
 
-- **[Product](/docs/product/overview)** — what LockedIn does and how to use
-  it: creating a roadmap, how the daily email is built, marking problems
-  complete.
-- **[Engineering](/docs/engineering/architecture)** — how the app is put
-  together, why it's shaped that way, and the log of technical decisions
-  behind it. Mirrors `docs/ARCHITECTURE.md`, `docs/DECISIONS.md`, and
-  `docs/ROADMAP.md` in the repository.
+<Cards>
+  <Card
+    icon={<Rocket />}
+    title="Product"
+    href="/docs/product/overview"
+    description="What LockedIn does and how to use it: creating a roadmap, how the daily email is built, marking problems complete."
+  />
+  <Card
+    icon={<Layers />}
+    title="Engineering"
+    href="/docs/engineering/architecture"
+    description="How the app is put together, why it's shaped that way, and the log of technical decisions behind it."
+  />
+  <Card
+    icon={<SquareTerminal />}
+    title="API reference"
+    href="/api-docs"
+    external
+    description="Swagger UI, generated from the same Zod schemas that validate the requests."
+  />
+</Cards>
+
+The engineering section mirrors `docs/ARCHITECTURE.md`, `docs/DECISIONS.md` and
+`docs/ROADMAP.md` in the repository, so the pages here and the files a
+contributor reads are never two versions of the same claim.

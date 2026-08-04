@@ -17,6 +17,10 @@ export function ThemeToggle() {
   function toggle() {
     const next = theme === 'dark' ? 'light' : 'dark';
     document.documentElement.setAttribute('data-theme', next);
+    // Also the class, for the same reason THEME_INIT writes both: Fumadocs'
+    // theme and Tailwind's `dark:` variant read `.dark`, the blueprint tokens
+    // read [data-theme].
+    document.documentElement.classList.toggle('dark', next === 'dark');
     localStorage.setItem('lk-theme', next);
     setTheme(next);
   }

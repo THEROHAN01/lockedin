@@ -1,24 +1,55 @@
 ---
 title: Overview
 description: What LockedIn is, and what it isn't (yet).
+icon: Compass
 ---
 
 LockedIn is a single-purpose tool: **LeetCode email automation**. You set up a
 study roadmap once, and it nags you daily via email until you finish it.
 
-## How it works, in one paragraph
+## How it works
 
-You sign in, create a roadmap (a named, time-boxed plan — a start date, an end
-date, and a daily send time), and upload the list of problems that make it up.
-From then on, LockedIn sends a daily email with the next problems on your
-list, your progress so far, and a quote. If you fall behind, tomorrow's email
-carries more problems to keep you on pace to finish by your end date — and if
-your end date passes with problems still open, it keeps nagging rather than
-going quiet.
+<Steps>
+  <Step>
+    ### Sign in
+
+    Roadmaps belong to an account, so this comes first.
+  </Step>
+
+  <Step>
+    ### Create a roadmap
+
+    A named, time-boxed plan: a start date, an end date, and the time of day
+    you want to be emailed.
+  </Step>
+
+  <Step>
+    ### Upload the problems
+
+    The list of LeetCode problems the roadmap works through — each with a
+    title, a link, and a difficulty.
+  </Step>
+
+  <Step>
+    ### Get nagged
+
+    From then on, one email per day per roadmap: the next problems on your
+    list, your progress so far, and a quote. Fall behind and tomorrow's email
+    carries more, to keep you on pace for your end date.
+  </Step>
+</Steps>
+
+<Callout title="Your end date is a goal, not a wall">
+  If it passes with problems still open, LockedIn keeps nagging rather than
+  going quiet. [Archiving](/docs/product/features) is how a roadmap stops.
+</Callout>
 
 ## What it deliberately doesn't do (yet)
 
 No AI-generated roadmaps, no gamification (XP, levels), no notification
-channels beyond email, and no analytics. These are real directions being kept
-open — the data model is shaped so they don't require a rewrite later — but
-none of them ship today. See [Features](/docs/product/features) for what does.
+channels beyond email, and no analytics.
+
+These are real directions being kept open — the data model is shaped so they
+don't require a rewrite later — but none of them ship today. See
+[Features](/docs/product/features) for what does, and the
+[roadmap](/docs/engineering/roadmap) for which version each one lands in.

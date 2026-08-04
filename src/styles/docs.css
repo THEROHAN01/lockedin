@@ -1,0 +1,41 @@
+/*
+ * The docs stylesheet, imported from app/docs/layout.tsx so it ships in the
+ * /docs CSS bundle and nowhere else.
+ *
+ * What matters most about this file is how little is in it. Fumadocs ships a
+ * complete, coherent visual system, and the job here is to let it render as
+ * itself rather than to restyle it — the previous integration lost because the
+ * blueprint layer (src/styles/base.css) was global and unlayered, so it beat
+ * every Fumadocs utility it touched. base.css now loads per route group, so
+ * none of it reaches this subtree and none of it needs undoing here.
+ *
+ * Typography is therefore left alone: Tailwind's preflight gives the docs the
+ * default UI sans stack, which is what stock Fumadocs looks like, and code
+ * lands on JetBrains Mono because the `font-mono` utility resolves through
+ * --font-mono from the shared token layer.
+ *
+ * The one deliberate departure is the accent below.
+ */
+
+/*
+ * Scoped to `body:has(.fd-docs)` rather than to the .fd-docs wrapper itself
+ * because the search dialog and the mobile sidebar render through portals
+ * attached to <body>, outside the wrapper. Setting the variables on <body>
+ * means the portalled UI inherits them too.
+ */
+body:has(.fd-docs) {
+  /*
+   * Fumadocs' neutral preset makes `primary` near-black in light mode and
+   * near-white in dark; it is the colour of links, the active sidebar item, the
+   * TOC marker and focus rings. Pointing it at the product accent is the one
+   * place the docs carry the brand — everything structural stays Fumadocs'.
+   *
+   * --accent is the text-safe accent from tokens.css, not --accent-vivid:
+   * primary is used as text, and the vivid green is 1.88:1 on the light
+   * background. Contrast against Fumadocs' backgrounds is 10.5:1 (light,
+   * olive on hsl(0 0% 96%)) and 9.4:1 (dark, green on hsl(0 0% 7%)).
+   */
+  --color-fd-primary: var(--accent);
+  --color-fd-primary-foreground: var(--accent-ink);
+  --color-fd-ring: var(--accent);
+}

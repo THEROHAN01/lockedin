@@ -1,6 +1,26 @@
+/*
+ * The global stylesheet. Deliberately contains only what BOTH the product and
+ * the docs site need: Tailwind, the shared token layer, and Fumadocs' theme.
+ *
+ * The blueprint layer (src/styles/base.css) is NOT imported here — it is
+ * imported per route group, from app/(app)/layout.tsx and app/(auth)/layout.tsx.
+ * That is load-bearing, not tidiness:
+ *
+ *   base.css is unlayered global CSS, and unlayered declarations beat every
+ *   @layer regardless of specificity. So `* { border-radius: 0 }`, VT323 on
+ *   every heading and a serif body font overrode Fumadocs' own utilities
+ *   wholesale, and /docs came out looking like neither design system. Keeping
+ *   it out of the docs CSS bundle is what lets Fumadocs render in its own
+ *   aesthetic — see src/styles/docs.css.
+ *
+ * Fumadocs' CSS has to live here rather than in the docs subtree, because
+ * preset.css declares the @theme variables, @utility/@variant definitions and
+ * @source globs that Tailwind needs at build time, and there is one Tailwind
+ * entry point. It is inert on product routes: its own rules sit in @layer base,
+ * which the blueprint layer outranks.
+ */
 @import 'tailwindcss';
 @import '../src/styles/tokens.css';
-@import '../src/styles/base.css';
 @import 'fumadocs-ui/css/neutral.css';
 @import 'fumadocs-ui/css/preset.css';
 

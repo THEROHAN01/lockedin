@@ -1,18 +1,24 @@
 ---
 title: Roadmap
-description: MVP scope, and what is deliberately out of scope.
+description: The version milestones — v1.0 through v5.0 — and why each feature belongs where it does.
+icon: Map
 ---
 
-This document defines what LockedIn is building now (MVP) and what it is
-explicitly not building yet. The "not now" section exists so that future
-features are never used to justify scope creep in the MVP, while also making
-sure MVP architecture doesn't quietly foreclose them.
+This document defines LockedIn's plan as a sequence of versions, each with a
+theme and a fixed feature list. Later versions exist so that earlier ones are
+never used to justify scope creep — a feature belongs in exactly one version,
+decided here — while also making sure each version's architecture doesn't
+quietly foreclose the ones after it.
 
-## MVP Scope (Building Now)
+Versions are semver-style. A `.0` bump changes the product's shape (a new
+mechanic, a new kind of data); a `.x` bump adds more of something that
+already exists through an existing seam, without changing the shape.
 
-LockedIn's MVP is a single-purpose tool: **LeetCode email automation**. A user
-sets up a study roadmap once, and the product nags them daily via email until
-they finish it. Nothing else.
+## v1.0 — Core Nagging (Building Now)
+
+LockedIn's first version is a single-purpose tool: **LeetCode email
+automation**. A user sets up a study roadmap once, and the product nags them
+daily via email until they finish it. Nothing else.
 
 ### Features
 
@@ -32,15 +38,15 @@ they finish it. Nothing else.
    - a quote
 6. **View progress** — user can see roadmap progress in-app.
 7. **Mark complete** — user can mark a problem as solved. One-directional:
-   un-marking is **out of MVP scope**. Because progress is stored as an
+   un-marking is **out of v1.0 scope**. Because progress is stored as an
    append-only event log, adding it later is a `DELETE` on the completion
    subresource with no migration and no loss of history.
 8. **Archive roadmap** — user can archive a roadmap so it stops nagging, and
    unarchive it. Implemented as a `status` field on the existing roadmap
    resource, not a bespoke endpoint.
 
-That's the full MVP. No AI, no gamification, no multi-channel notifications,
-no analytics.
+That's the full v1.0. No AI-generated roadmaps, no gamification, no
+multi-channel notifications, no analytics.
 
 > **Amendment (feature 5).** This originally specified a single problem per
 > email. Pacing is rate-based and recomputed at send time (ADR-011), so when a
@@ -53,42 +59,90 @@ no analytics.
 > terminal state on its own. It costs one enum value on a field that already
 > exists.
 
-## Future Vision — Not Building Now
+Elsewhere in this repo, "the MVP" refers to v1.0 — the two terms are the same
+thing.
 
-The following are real product directions, deliberately deferred. They are
-listed here so the architecture built for the MVP does not have to be
-rewritten to accommodate them later.
+## v1.1 — More Channels
 
-- **AI-generated roadmaps** — generate the problem list/order from a prompt
-  instead of manual upload.
+- **WhatsApp, push notifications, and X/Twitter**, alongside or instead of
+  email.
+
+A `.x` bump, not `.0`: it adds implementations behind the
+`NotificationChannel` seam that v1.0 already built for this (ARCHITECTURE.md
+§2), rather than changing what the product decides to send or when. The one
+honest caveat, already recorded where the seam is documented: the sweep
+currently takes one channel for the whole run, so per-user channel
+preference needs a preference field and an orchestrator change from "take a
+channel" to "resolve a channel per roadmap." The seam means the digest logic
+doesn't move; it does not mean this version is free.
+
+## v2.0 — AI-Generated Roadmaps
+
+- **Generate the problem list/order from a prompt**, instead of only manual
+  CSV upload.
+
+A `.0` bump: it changes the roadmap-creation product flow, not just adds a
+channel. It builds on the `AiProvider` seam (ADR-015) and its first consumer,
+the AI-generated daily quote (ADR-016/017/018), which already prove the seam
+holds for one real caller. Generating the *item list* is a second, larger
+caller — validating that the `RoadmapSource` seam (ARCHITECTURE.md §2) holds
+for an async, network-backed source and not only the synchronous CSV one.
+
+## v3.0 — Gamification
+
 - **Missions** — smaller sub-goals within or across roadmaps.
-- **XP / levels** — gamified progression layer on top of completion.
-- **Additional notification channels** — WhatsApp, push notifications,
-  Twitter/X, alongside or instead of email.
-- **Analytics** — aggregate/personal insight into study patterns, streaks,
+- **XP / levels** — a gamified progression layer on top of completion.
+
+Bundled into one version because both read from the same data: the
+append-only `ProgressEvent` log v1.0 built specifically so "a future
+XP/level/mission layer can be computed from it without needing to re-derive
+history retroactively" (see the constraints below). Missions and levels are
+two views of one underlying progress timeline, not two independent features.
+
+## v4.0 — Analytics
+
+- **Aggregate and personal insight** into study patterns, streaks,
   problem-type breakdowns, etc.
-- **Habits beyond LeetCode** — generalizing the roadmap/reminder engine to
-  arbitrary habits, not just coding problems.
 
-### Architecture must support this — constraints on the MVP build
+Placed after gamification deliberately: analytics is most useful once there
+is more than one version's worth of usage data to look back over (multiple
+channels, missions, XP history), and it reads history rather than writing
+it, so it has no sequencing dependency on the versions before it beyond "more
+data exists by now."
 
-None of the above is being built now, but the MVP's data model and interfaces
+## v5.0 — Beyond LeetCode
+
+- **Generalize the roadmap/reminder engine to arbitrary habits**, not just
+  coding problems.
+
+The biggest, most foundational shift, so it comes last: it turns LockedIn
+from a LeetCode-specific product into a general nagging platform. `url`
+moving from `NOT NULL` to nullable (ARCHITECTURE.md §3) is the concrete
+schema signal that this version has arrived — every version before it can
+still assume a roadmap item always links somewhere.
+
+## Architecture must support this — constraints on v1.0
+
+None of v1.1 onward is being built now, but v1.0's data model and interfaces
 must not assume they'll never exist:
 
-- **Problem entity stays generic.** Model it as "an item with a title, a
-  link, a difficulty, and a completion state" rather than baking in
-  LeetCode-specific fields, so a future AI-generation path or non-LeetCode
-  habit can populate the same shape.
-- **Notification delivery is channel-agnostic at the boundary.** Even though
-  only email ships in the MVP, the code that decides *what* to send and *when*
-  should not be entangled with the code that decides *how* (email vs.
-  WhatsApp vs. push). One channel today, but the seam should already exist.
-- **Roadmap creation is pluggable.** "Upload questions" is one way to
-  populate a roadmap; it should not be wired so tightly into the roadmap
-  model that "AI generates the list instead" requires a schema rewrite.
-- **Progress is a first-class, extensible concept.** Track completion in a
-  way that a future XP/level/mission layer can be computed from or attached
-  to, without needing to re-derive history retroactively.
+- **Problem entity stays generic** (serves v2.0, v5.0). Model it as "an item
+  with a title, a link, a difficulty, and a completion state" rather than
+  baking in LeetCode-specific fields, so a future AI-generation path or
+  non-LeetCode habit can populate the same shape.
+- **Notification delivery is channel-agnostic at the boundary** (serves
+  v1.1). Even though only email ships in v1.0, the code that decides *what*
+  to send and *when* should not be entangled with the code that decides *how*
+  (email vs. WhatsApp vs. push). One channel today, but the seam should
+  already exist.
+- **Roadmap creation is pluggable** (serves v2.0). "Upload questions" is one
+  way to populate a roadmap; it should not be wired so tightly into the
+  roadmap model that "AI generates the list instead" requires a schema
+  rewrite.
+- **Progress is a first-class, extensible concept** (serves v3.0, v4.0).
+  Track completion in a way that a future XP/level/mission layer can be
+  computed from or attached to, without needing to re-derive history
+  retroactively.
 
 These are constraints on shape, not commitments to build anything early —
-the MVP still ships only the seven features above.
+v1.0 still ships only the eight features above.
