@@ -1,0 +1,30 @@
+---
+title: The daily email
+description: How many problems you get each day, and why that number changes.
+---
+
+Each day, per roadmap, you get one email containing:
+
+- **One to five problems**, each with its title, a link, and its difficulty
+- Your progress — problems completed out of total, days elapsed out of total
+- A quote
+
+## Why the count changes
+
+The number of problems isn't fixed at roadmap creation — it's recomputed
+every day from how many problems remain and how many days are left:
+
+```
+problemsToday = min(5, max(1, ceil(remaining / daysLeft)))
+```
+
+If you keep pace, that's usually 1. If you fall behind, the count rises
+gradually to spread the catch-up over your remaining days, rather than
+dumping a punishing backlog on you all at once — capped at 5, because a
+twenty-problem email is noise, not a nudge.
+
+## Past your end date
+
+Your end date is a goal, not a wall. If it passes with problems still open,
+LockedIn keeps nagging — the daily count stays capped at 5 — until you either
+finish every problem or archive the roadmap.
