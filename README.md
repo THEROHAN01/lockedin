@@ -31,6 +31,16 @@ openssl rand -base64 32       # CRON_SECRET
 `RESEND_API_KEY` can stay as the placeholder for everything except actually
 delivering mail — the test suite never sends.
 
+## Reading the docs
+
+Append `/docs` to wherever this app is running — locally that's
+**http://localhost:3000/docs**, deployed it's your production URL (e.g.
+`https://lockedin.vercel.app/docs`) — to get the Fumadocs site: a product
+section (what LockedIn does, how the daily email and pacing work) and an
+engineering section mirroring `docs/ARCHITECTURE.md`, `docs/DECISIONS.md`,
+and `docs/ROADMAP.md` for anyone who'd rather read it in a browser than on
+GitHub.
+
 ## Browsing the API
 
 Every endpoint, its request and response shapes, and its error cases are at
