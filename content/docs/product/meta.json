@@ -1,4 +1,6 @@
 {
   "title": "Product",
+  "description": "What LockedIn does today",
+  "icon": "Rocket",
   "pages": ["overview", "features", "daily-email"]
 }

@@ -21,7 +21,16 @@ const appApi = fileURLToPath(new URL('../../../app/api', import.meta.url));
  * point: an undocumented route has to be named here, so it is a decision on the
  * record rather than an omission.
  */
-const NOT_PART_OF_THE_API = new Set(['/api/openapi.json']);
+const NOT_PART_OF_THE_API = new Set([
+  '/api/openapi.json',
+  /**
+   * Backs the docs site's search dialog (app/docs/**). It serves the
+   * documentation rather than the product, and its request/response shape is
+   * Fumadocs' to define, not this app's — publishing it in the LockedIn API
+   * reference would describe a contract we do not own.
+   */
+  '/api/search',
+]);
 
 /**
  * Better Auth mounts its whole surface behind one catch-all file, so there is no

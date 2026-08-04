@@ -41,6 +41,16 @@ engineering section mirroring `docs/ARCHITECTURE.md`, `docs/DECISIONS.md`,
 and `docs/ROADMAP.md` for anyone who'd rather read it in a browser than on
 GitHub.
 
+Reading it in a browser buys you three things the markdown files don't:
+full-text search (`⌘K` / `Ctrl-K`, indexed in-process — no external service),
+the Mermaid diagrams in ARCHITECTURE rendered as actual diagrams, and a theme
+switch that shares the one `lk-theme` setting with the rest of the app.
+
+The docs are styled by Fumadocs, deliberately not by the blueprint design
+system the product uses. That is why `src/styles/base.css` is imported from the
+route-group layouts rather than the root layout — see the comment at the top of
+`app/globals.css` before moving it.
+
 ## Browsing the API
 
 Every endpoint, its request and response shapes, and its error cases are at

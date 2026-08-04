@@ -1,6 +1,12 @@
 /*
  * Blueprint base layer. Consumes tokens from tokens.css only — no literals.
  *
+ * Imported from app/(app)/layout.tsx and app/(auth)/layout.tsx, NOT from the
+ * root layout. This file is unlayered global CSS, so its element selectors beat
+ * every Tailwind/Fumadocs utility they overlap with; keeping it in the product
+ * route groups is what leaves /docs to Fumadocs' own design system. See the
+ * comment at the top of app/globals.css before moving this import.
+ *
  * The seven Blueprint rules this enforces:
  *   radius 0 everywhere · hard offset shadows, never blurred · VT323 headings
  *   Source Serif 4 body · JetBrains Mono for technical text · accent used

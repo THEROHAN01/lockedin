@@ -1,30 +1,59 @@
 ---
 title: The daily email
 description: How many problems you get each day, and why that number changes.
+icon: Mail
 ---
 
-Each day, per roadmap, you get one email containing:
+One email per roadmap per day. Never two — even if the scheduler runs a dozen
+times before your send time comes round.
 
-- **One to five problems**, each with its title, a link, and its difficulty
-- Your progress — problems completed out of total, days elapsed out of total
-- A quote
+## What's in it
+
+<TypeTable
+  type={{
+    problems: {
+      type: '1 to 5 problems',
+      description:
+        'Each with its title, a link to it, and its difficulty. How many is recomputed daily — see below.',
+    },
+    progress: {
+      type: 'two counters',
+      description:
+        'Problems completed out of the total, and days elapsed out of the total.',
+    },
+    quote: {
+      type: 'one line',
+      description:
+        'AI-generated where a provider is configured, and from a fixed table otherwise. A missing provider is a normal state, not an error.',
+    },
+  }}
+/>
 
 ## Why the count changes
 
-The number of problems isn't fixed at roadmap creation — it's recomputed
-every day from how many problems remain and how many days are left:
+The number of problems isn't fixed when you create the roadmap. It is
+recomputed on every send, from how many problems remain and how many days are
+left:
 
-```
+```text
 problemsToday = min(5, max(1, ceil(remaining / daysLeft)))
 ```
 
 If you keep pace, that's usually 1. If you fall behind, the count rises
-gradually to spread the catch-up over your remaining days, rather than
-dumping a punishing backlog on you all at once — capped at 5, because a
-twenty-problem email is noise, not a nudge.
+gradually to spread the catch-up over your remaining days, rather than dumping
+a punishing backlog on you all at once.
+
+<Callout title="Why it stops at five">
+  A twenty-problem email is noise, not a nudge — past a handful you stop reading
+  it, which defeats the entire point of the product.
+</Callout>
+
+Because the count is derived rather than stored, editing a roadmap's dates or
+its problem list changes tomorrow's email immediately. There is nothing
+cached to invalidate.
 
 ## Past your end date
 
 Your end date is a goal, not a wall. If it passes with problems still open,
-LockedIn keeps nagging — the daily count stays capped at 5 — until you either
-finish every problem or archive the roadmap.
+LockedIn keeps nagging — still capped at five a day — until you either finish
+every problem or [archive the roadmap](/docs/product/features).
