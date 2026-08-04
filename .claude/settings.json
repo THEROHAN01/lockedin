@@ -1,0 +1,19 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "agent",
+            "if": "Bash(git commit *)",
+            "model": "claude-sonnet-5",
+            "timeout": 180,
+            "statusMessage": "Checking whether /docs needs updating for this commit...",
+            "prompt": "A git commit was just made in this repository. Run `git show --stat HEAD` and `git diff HEAD~1 HEAD` to see exactly what it changed.\n\nThis project publishes a Fumadocs site under content/docs/, with two sections:\n- content/docs/engineering/{architecture,decisions,roadmap}.mdx — near-verbatim mirrors of docs/ARCHITECTURE.md, docs/DECISIONS.md, and docs/ROADMAP.md respectively.\n- content/docs/product/{overview,features,daily-email}.mdx — user-facing descriptions of current behavior (roadmap creation, the daily email, pacing, archiving, etc).\n\nDecide whether this commit's diff requires any of those .mdx files to be updated to stay accurate:\n- If docs/ARCHITECTURE.md, docs/ROADMAP.md, or docs/DECISIONS.md changed, mirror the same change into the corresponding content/docs/engineering/*.mdx file (same content, same frontmatter, only rewriting the two relative cross-links to /docs/engineering/roadmap and /docs/engineering/decisions as the existing pages already do). DECISIONS.md is append-only, so the only valid change there is a brand-new ADR appended at the end — mirror it verbatim; never edit an existing ADR entry.\n- If source code changed in a way that alters user-visible behavior described in content/docs/product/ (e.g. the pacing formula, the daily email cap, roadmap fields, archiving, completion semantics), update the relevant product page(s) to match.\n- If the commit is unrelated to any of this (tests, refactors, CI, unrelated features), do nothing.\n\nWhen you do update a file, edit it directly with the Edit tool. Do NOT run `git add` or `git commit` yourself — leave the changes unstaged so they surface in `git status` for the next commit or for review. Do NOT touch docs/ARCHITECTURE.md, docs/ROADMAP.md, or docs/DECISIONS.md themselves; only the content/docs/**/*.mdx mirrors.\n\nEnd with one short sentence: either which file(s) you updated and why, or \"No docs update needed for this commit.\" Do not produce a long report."
+          }
+        ]
+      }
+    ]
+  }
+}
