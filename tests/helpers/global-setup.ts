@@ -17,8 +17,13 @@ export default function setup(): void {
     );
   }
 
+  // Both variables are redirected, and DIRECT_URL is the load-bearing one:
+  // `migrate deploy` reads the datasource's `directUrl`, not `url` (ADR-020).
+  // Overriding DATABASE_URL alone would leave migrations pointed at whatever
+  // DIRECT_URL happens to hold — in a normal .env, the *development* database —
+  // so a test run would silently migrate the wrong database.
   execFileSync('pnpm', ['exec', 'prisma', 'migrate', 'deploy'], {
-    env: { ...process.env, DATABASE_URL: url },
+    env: { ...process.env, DATABASE_URL: url, DIRECT_URL: url },
     stdio: 'inherit',
   });
 }

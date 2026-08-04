@@ -187,13 +187,15 @@ error costs one retry rather than the whole day.
 
 Vercel per ADR-007, with the sweep driven from GitHub Actions per ADR-014.
 
-**1. Database.** Create a Postgres database on Neon and copy its pooled
-connection string. Apply the schema from your machine — deliberately not from the
-build, so a preview deploy can never migrate production:
+**1. Database.** Create a Postgres database on Neon and copy **both** of its
+connection strings — the pooled one (host contains `-pooler`) and the direct
+one. They address the same database; the app needs the first and migrations need
+the second (ADR-020).
 
-```bash
-DATABASE_URL="<neon-connection-string>" pnpm db:deploy
-```
+You do not need to apply the schema by hand. A production deploy runs
+`prisma migrate deploy` for you as the first step of its build. Preview deploys
+deliberately skip it, because Preview points at the production database — see
+ADR-020 for the guard that enforces that.
 
 **2. Vercel project.**
 
@@ -208,7 +210,8 @@ or with `vercel env add <NAME> production`:
 
 | Variable | Value |
 |---|---|
-| `DATABASE_URL` | the Neon connection string |
+| `DATABASE_URL` | the Neon **pooled** string (host has `-pooler`), plus `?pgbouncer=true&connect_timeout=15` |
+| `DIRECT_URL` | the Neon **direct** string — migrations only, never the app |
 | `BETTER_AUTH_SECRET` | `openssl rand -base64 32` — a **new** one, not your local value |
 | `BETTER_AUTH_URL` | your production URL, e.g. `https://lockedin.vercel.app` |
 | `RESEND_API_KEY` | from Resend |
