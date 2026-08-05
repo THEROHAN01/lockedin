@@ -76,6 +76,11 @@ jobs:
       # The values below are placeholders that only need to be non-empty — the
       # build evaluates modules that assert their config is present. Nothing here
       # is a credential, and nothing here reaches a real service.
+      #
+      # There is no database in this job, and `pnpm build` needs none: its first
+      # step is scripts/migrate-on-deploy.sh, which takes its early exit because
+      # VERCEL_ENV is unset here (ADR-020). That guard is the only reason a
+      # migrate step can live in `build` without this job needing Postgres.
       - name: Build
         env:
           DATABASE_URL: postgresql://ci:ci@localhost:5432/ci?schema=public
@@ -121,6 +126,12 @@ jobs:
       # no .env file is needed here.
       TEST_DATABASE_URL: postgresql://lockedin:lockedin@localhost:5432/lockedin_test?schema=public
       DATABASE_URL: postgresql://lockedin:lockedin@localhost:5432/lockedin_test?schema=public
+      # Needed because the datasource declares `directUrl` (ADR-020): every
+      # Prisma migration command resolves DIRECT_URL, so leaving it unset fails
+      # schema validation before a single test runs. The global setup overrides
+      # it to the test database anyway; this satisfies the resolution, and points
+      # at the test database either way so a slip cannot reach another one.
+      DIRECT_URL: postgresql://lockedin:lockedin@localhost:5432/lockedin_test?schema=public
       BETTER_AUTH_SECRET: ci-placeholder-not-a-real-secret
       BETTER_AUTH_URL: http://localhost:3000
       # A placeholder key on purpose. One cron test asserts that a tick where

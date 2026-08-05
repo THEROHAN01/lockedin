@@ -742,3 +742,84 @@ specifically), Alternatives considered, Consequences.
   not a signal to update. The next person to touch this should re-derive the
   compatible triple from package registry release timestamps the same way,
   rather than trusting peer-range declarations alone.
+
+---
+
+## ADR-020: Migrations run in the production build, over a direct connection
+
+- **Status:** Accepted (revisit if Preview gets its own Neon branch)
+- **Context:** Changing the schema was two steps — commit the migration, then
+  apply it to production — and only the first was automatic. `pnpm db:deploy`
+  existed but nothing called it: `build` was `prisma generate && next build`, and
+  `generate` only writes TypeScript types, it never touches a database.
+  `vercel.json` had crons and no build hook, and no workflow ran it either. The
+  README documented applying migrations by hand.
+
+  That failure mode is unusually bad for this product. It surfaces at runtime as
+  a 500 rather than at build time, so the deploy looks green; and the daily sweep
+  fails the same way but **silently**, because no user is watching a page when
+  cron runs. Nobody finds out until someone notices their email never arrived —
+  in a product whose entire job is sending that email.
+
+  Compounding it, `prisma/schema.prisma` declared a single `url`, so the app and
+  migrations shared one connection string. Neon exposes two addresses for the
+  same database: pooled (host contains `-pooler`) for the many short-lived
+  connections serverless functions create, and direct for schema changes.
+  Whichever single value was stored, one of the two jobs was using the wrong one
+  — migrations hanging on locks PgBouncer cannot hold, or the app exhausting
+  Neon's connection limit, which is the very failure ADR-003 cites as the reason
+  for choosing Neon.
+- **Decision:** Three parts, and all three are load-bearing:
+  1. **Two connection strings.** The datasource declares `url = env("DATABASE_URL")`
+     (pooled — the running app) and `directUrl = env("DIRECT_URL")` (direct —
+     migrations). Prisma routes migration commands to `directUrl` automatically.
+  2. **`build` applies migrations first**, via `scripts/migrate-on-deploy.sh`, so
+     shipping code and reshaping the database are one step rather than two.
+  3. **That script only migrates when `VERCEL_ENV=production`**, and fails
+     loudly if `DIRECT_URL` is missing rather than falling back to the pooler.
+- **Why:**
+  - **The guard is what makes part 2 safe at all.** Preview deployments run the
+    build too, and this project's Preview environment points at the *production*
+    database. Unguarded, opening a pull request would apply that branch's
+    half-finished migration to production data. Guarding on `VERCEL_ENV` is not
+    a refinement of the build hook — without it the build hook is unshippable.
+  - **The same guard is why CI keeps working.** Neither a local build nor CI
+    sets `VERCEL_ENV`, so both take the early exit and never touch a database.
+    This is what let the migrate step live in `build` itself. The alternative —
+    a separate `vercel-build` script, which Vercel prefers over `build` — was
+    considered first and rejected: it splits one pipeline into two code paths
+    that can drift, and it leans on a platform naming convention where an
+    explicit environment check reads plainly.
+  - **`migrate deploy` is safe to run on every production deploy.** It applies
+    only migrations already committed to git, never prompts, never generates, and
+    never resets on drift — it fails the build instead. A deploy with nothing
+    pending is a no-op.
+  - **Failing on a missing `DIRECT_URL` beats defaulting to `DATABASE_URL`.**
+    A silent fallback would run migrations through PgBouncer, which is the
+    original bug wearing a disguise, and it would do so at the one moment nobody
+    is watching closely.
+- **Alternatives considered:** *A GitHub Actions job on push to `main`* running
+  `pnpm db:deploy` — works, and keeps migrations out of the build entirely, but
+  adds a second place for the direct connection string to live and a second
+  system to keep in step with deploys. Rejected as more moving parts for the same
+  guarantee. *Giving Preview its own Neon branch* and migrating on every
+  environment — the better end state, and what ADR-003 already assumes, but it is
+  infrastructure work that this decision should not block on; the guard makes the
+  current shared-database setup safe today and stays correct afterwards.
+  *Continuing to apply migrations by hand* — rejected; it is precisely the step
+  that gets skipped, and the cost of skipping it is a silent outage.
+- **Consequences:**
+  - **A Preview deploy of a branch carrying a new migration will break**, because
+    Preview shares the production database and does not migrate it. That is the
+    intended trade: a loudly broken preview is strictly better than quietly
+    reshaped production data. Giving Preview its own Neon branch is what removes
+    the sharp edge, and is the documented follow-up.
+  - **`DIRECT_URL` must now exist everywhere Prisma runs a migration command.**
+    It is not optional: with `directUrl` declared, `prisma migrate deploy` fails
+    schema validation outright when the variable is unset. `prisma generate` is
+    unaffected — it resolves the datasource without needing the value.
+  - **The test suite overrides both variables, not just `DATABASE_URL`.**
+    `tests/helpers/global-setup.ts` sets `DIRECT_URL` to the test database as
+    well, because migrations read `directUrl`; overriding only `DATABASE_URL`
+    would have pointed them at whatever `DIRECT_URL` held — in a normal `.env`,
+    the development database — and silently migrated the wrong one.

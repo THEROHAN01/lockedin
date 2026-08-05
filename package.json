@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && next build",
+    "build": "bash scripts/migrate-on-deploy.sh && prisma generate && next build",
     "db:deploy": "prisma migrate deploy",
     "start": "next start",
     "postinstall": "fumadocs-mdx",
