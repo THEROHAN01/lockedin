@@ -1,0 +1,25 @@
+
+
+# ── Subject ───────────────────────────────────────────────────────────
+# One line, imperative mood, no trailing period, under ~65 characters.
+# Say the point of the change rather than the area it touched:
+#
+#   yes  Run the enforced rules in CI, not just on someone's laptop
+#   no   ci changes
+#
+# No type prefixes (feat:, fix:, chore:) — this repo does not use them.
+#
+# ── Body ──────────────────────────────────────────────────────────────
+# Blank line, then why over what: the diff already shows what changed.
+# Worth covering, when each applies —
+#
+#   · what was wrong, missing, or surprising before this change
+#   · why this approach, over the one a reader would reach for first
+#   · what bit you on the way, and would bite the next person
+#   · anything deliberately left out, and why
+#
+# Wrap around 72 characters. Where docs/DECISIONS.md holds the reasoning,
+# cite the ADR instead of restating it.
+#
+# Delete these comments or leave them — git strips every line starting
+# with '#' before the message is saved.
