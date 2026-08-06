@@ -7,6 +7,7 @@ every day with what to do, adjusting the daily load if you fall behind.
 - [`docs/ROADMAP.md`](docs/ROADMAP.md) — what the MVP is and is not
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — how it is built, with diagrams
 - [`docs/DECISIONS.md`](docs/DECISIONS.md) — every significant technical decision and why
+- [`CONTRIBUTING.md`](CONTRIBUTING.md) — the commit message convention, and how to opt into the template
 
 ## Getting started
 
@@ -19,6 +20,8 @@ cp .env.example .env          # then fill in the two secrets, see below
 pnpm db:up                    # Postgres 16 on port 5433, plus a test database
 pnpm db:migrate
 pnpm dev                      # http://localhost:3000
+
+git config commit.template .gitmessage   # optional, see CONTRIBUTING.md
 ```
 
 Generate the two secrets `.env.example` leaves blank:
