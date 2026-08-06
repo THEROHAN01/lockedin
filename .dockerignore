@@ -1,0 +1,46 @@
+# What never belongs in the build context.
+#
+# Two jobs. Keeping secrets out of the image, and keeping the context small so
+# a docs edit does not invalidate the dependency layer and trigger a reinstall.
+
+# Rebuilt inside the image; copying host versions would mix a glibc/musl
+# node_modules or a stale .next into the build.
+node_modules
+.next
+.source
+out
+build
+dist
+coverage
+*.tsbuildinfo
+next-env.d.ts
+
+# Configuration is read from the environment at run time. A .env baked into a
+# layer ships credentials to everyone who can pull the image, and `docker
+# history` will show it even if a later layer deletes the file.
+.env
+.env.*
+!.env.example
+
+# Not read by the build. Two directories are deliberately absent from this list
+# and must stay that way: content/, which fumadocs-mdx compiles into the docs
+# site, and scripts/, which `pnpm build` invokes — excluding it turns the build
+# into a not-found error at the first line of the build script.
+.git
+.github
+.gitignore
+.gitmessage
+tests
+specs
+docs
+*.md
+.claude
+.vercel
+Dockerfile
+.dockerignore
+docker-compose.yml
+
+# Editor and OS noise.
+.vscode
+.idea
+.DS_Store

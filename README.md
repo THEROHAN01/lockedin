@@ -166,6 +166,39 @@ silently falls back to 3001 and you keep hitting the broken one. Check with
 
 Don't run `pnpm build` and `pnpm dev` at the same time.
 
+## Running it in a container
+
+Vercel is the deployment target of record (ADR-007) and ignores the `Dockerfile`
+entirely. It exists so the app can also run anywhere that takes a container, and
+so the built app can be run without a Node toolchain.
+
+```bash
+docker build -t lockedin .
+docker run --rm -p 3000:3000 --env-file .env lockedin
+```
+
+Point `DATABASE_URL` at a database the container can actually reach — not
+`localhost`, which inside a container means the container. Against the Postgres
+from `pnpm db:up`, that is `host.docker.internal:5433` on macOS and Windows, or
+`--network=host` with `localhost:5433` on Linux.
+
+Migrations are **not** applied on start, because N replicas booting together
+would race on one schema. Apply them as a separate one-off task first:
+
+```bash
+docker build --target migrator -t lockedin-migrate .
+docker run --rm --env-file .env lockedin-migrate
+```
+
+Two things worth knowing before editing the `Dockerfile`. The image serves
+`.next/standalone` — Next's traced output, 104 MB against 1.1 GB of installed
+dependencies — which is why `next.config.ts` sets `output` conditionally on
+`BUILD_STANDALONE`, a variable only the Docker build sets, so `pnpm build` and
+CI are unchanged. And the placeholder environment variables in the builder stage
+are not configuration: `next build` imports modules that assert their config at
+module scope (`src/auth.ts` throws on a missing `BETTER_AUTH_SECRET` merely being
+loaded), so the build needs them non-empty. None reaches the runtime image.
+
 ## Three things worth knowing before changing code
 
 **The domain layer is pure.** `src/domain/` has no database, no network and no
