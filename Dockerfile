@@ -43,14 +43,18 @@ WORKDIR /app
 # dependencies. Only the files below invalidate this layer.
 FROM base AS deps
 
-# source.config.ts and content/ are here because `postinstall` runs
-# fumadocs-mdx, which reads the config and the content directory it points at.
-# Without them the install fails, which is a confusing way to discover that
-# postinstall is not a no-op.
+# source.config.ts is here because `postinstall` is not a no-op: it runs
+# fumadocs-mdx, which exits non-zero without that file. prisma/ is here for the
+# same reason — @prisma/client's own postinstall generates against the schema.
+#
+# content/ is deliberately NOT copied, though fumadocs reads it during the real
+# build. It is not needed to generate types (verified: the postinstall succeeds
+# without it), and copying it here would put every docs edit in this layer's
+# cache key — reinstalling all dependencies to change a sentence, which is the
+# cost this stage exists to avoid.
 COPY package.json pnpm-lock.yaml ./
 COPY source.config.ts ./
 COPY prisma ./prisma
-COPY content ./content
 
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm-store \
   pnpm config set store-dir /pnpm-store \
@@ -108,10 +112,10 @@ USER node
 # Ownership is set on copy rather than with a later chown, which would duplicate
 # every file into a second layer.
 #
-# Three copies, because standalone is not self-sufficient by design: Next traces
+# Two copies, because standalone is not self-sufficient by design: Next traces
 # server code only, leaving the client bundle in .next/static to be served by a
 # CDN in deployments that have one. There is no public/ directory in this repo
-# today — add a COPY for it alongside these if one appears.
+# today — add a third COPY for it alongside these if one appears.
 COPY --from=builder --chown=node:node /app/.next/standalone ./
 COPY --from=builder --chown=node:node /app/.next/static ./.next/static
 
@@ -139,4 +143,13 @@ CMD ["node", "server.js"]
 # It inherits the builder, so it has the Prisma CLI and the migrations that the
 # runner deliberately does not.
 FROM builder AS migrator
+
+# Inheriting the builder also inherits its placeholder DATABASE_URL, which for
+# this stage is actively dangerous in a quiet way: run without --env-file and
+# Prisma would dial the placeholder host rather than say it was misconfigured.
+# Blanking it turns that into an immediate, legible failure about a missing
+# connection string, which is the only correct outcome for a migration whose
+# target is unknown.
+ENV DATABASE_URL=""
+
 CMD ["pnpm", "exec", "prisma", "migrate", "deploy"]
