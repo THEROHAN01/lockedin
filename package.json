@@ -39,6 +39,7 @@
     "@prisma/client": "6.19.3",
     "ai": "^7.0.48",
     "better-auth": "1.6.25",
+    "clsx": "^2.1.1",
     "fumadocs-core": "15.8.5",
     "fumadocs-mdx": "12.0.3",
     "fumadocs-ui": "15.8.5",
@@ -50,6 +51,7 @@
     "react-dom": "19.2.8",
     "resend": "6.18.1",
     "sarvamai": "^1.1.7",
+    "tailwind-merge": "^3.6.0",
     "zod": "4.4.3"
   },
   "devDependencies": {

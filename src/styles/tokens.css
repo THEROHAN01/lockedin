@@ -42,8 +42,8 @@
  * The --font-*-src variables are injected by next/font in app/layout.tsx.
  */
 :root {
-  --font-display: var(--font-display-src), ui-monospace, monospace;
-  --font-body: var(--font-body-src), 'Iowan Old Style', Georgia, serif;
+  --font-display: var(--font-display-src), ui-sans-serif, system-ui, sans-serif;
+  --font-body: var(--font-body-src), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-mono-src), ui-monospace, Consolas, monospace;
   --font-heading: var(--font-display);
 }
@@ -118,6 +118,10 @@
   --difficulty-easy: var(--accent-vivid);
   --difficulty-medium: color-mix(in srgb, var(--accent-vivid) 55%, var(--lk-olive));
   --difficulty-hard: light-dark(var(--lk-gray-900), var(--lk-gray-100));
+
+  /* Destructive — shadcn's error/danger slot. */
+  --destructive: #dc2626;
+  --destructive-ink: #fafafa;
 
   /* Radius — real scale, replaces the old hard 0 reset. */
   --radius-sm: 6px;

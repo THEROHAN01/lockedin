@@ -33,24 +33,48 @@
  * every utility at runtime instead of only at build time.
  */
 @theme inline {
+  --color-background: var(--bg);
+  --color-foreground: var(--ink);
+
+  --color-card: var(--bg-surface);
+  --color-card-foreground: var(--ink);
+
+  --color-popover: var(--bg-surface);
+  --color-popover-foreground: var(--ink);
+
+  --color-primary: var(--accent);
+  --color-primary-foreground: var(--accent-ink);
+
+  --color-secondary: var(--bg-surface-hover);
+  --color-secondary-foreground: var(--ink);
+
+  --color-muted: var(--bg-surface);
+  --color-muted-foreground: var(--ink-soft);
+
+  --color-accent: var(--bg-surface-hover);
+  --color-accent-foreground: var(--ink);
+
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-ink);
+
+  --color-border: var(--rule-soft);
+  --color-input: var(--rule-soft);
+  --color-ring: var(--accent);
+
+  /* Keep the existing product-specific tokens too — components built in
+   * later tasks use these directly for difficulty/status colours. */
   --color-bg: var(--bg);
   --color-bg-surface: var(--bg-surface);
   --color-bg-surface-hover: var(--bg-surface-hover);
   --color-code-bg: var(--code-bg);
-
   --color-ink: var(--ink);
   --color-ink-soft: var(--ink-soft);
   --color-ink-mute: var(--ink-mute);
-
-  --color-accent: var(--accent);
   --color-accent-vivid: var(--accent-vivid);
-  --color-accent-ink: var(--accent-ink);
   --color-accent-hover: var(--accent-hover);
   --color-accent-tint: var(--accent-tint);
-
   --color-rule: var(--rule);
   --color-rule-soft: var(--rule-soft);
-
   --color-status-done: var(--status-done);
   --color-status-pending: var(--status-pending);
   --color-difficulty-easy: var(--difficulty-easy);
@@ -61,7 +85,12 @@
   --font-body: var(--font-body);
   --font-mono: var(--font-mono);
 
-  --radius-none: 0;
-  --shadow-hard: var(--shadow-hard);
-  --shadow-hard-lg: var(--shadow-hard-lg);
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius: var(--radius-md);
+
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
 }
