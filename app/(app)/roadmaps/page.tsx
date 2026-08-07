@@ -1,10 +1,20 @@
-import Link from 'next/link';
+import { AlertCircle } from 'lucide-react';
 import { requireUserId } from '@/http/session';
 import { listRoadmapsFor } from '@/usecases/roadmaps';
-import { signOutAction } from '../../(auth)/actions';
-import { createRoadmapAction, setStatusAction } from '../actions';
+import { createRoadmapAction } from '../actions';
 import { SubmitButton } from '../../submit-button';
+import { StatusFilter } from './status-filter';
 import { TimezoneField } from './timezone-field';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 export default async function RoadmapsPage({
   searchParams,
@@ -18,97 +28,66 @@ export default async function RoadmapsPage({
   ]);
 
   return (
-    <main className="lk-container" style={{ paddingBlock: 40, maxWidth: 760 }}>
-      <header
-        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-      >
-        <div>
-          <span className="lk-label">LockedIn</span>
-          <h2 style={{ marginBottom: 0 }}>Roadmaps</h2>
-        </div>
-        <form action={signOutAction}>
-          <SubmitButton pendingLabel="Signing out">Sign out</SubmitButton>
-        </form>
-      </header>
-
-      <hr />
+    <div className="mx-auto grid max-w-(--container-max) gap-10 px-6 py-10">
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight">Roadmaps</h1>
+        <p className="text-sm text-muted-foreground">
+          Every plan you&apos;re being nagged about.
+        </p>
+      </div>
 
       {error ? (
-        <p role="alert" style={{ fontWeight: 'bold' }}>
-          {error}
-        </p>
+        <Alert variant="destructive">
+          <AlertCircle className="size-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       ) : null}
 
       {roadmaps.length === 0 ? (
-        <p style={{ color: 'var(--ink-soft)' }}>
-          Nothing yet. Create a roadmap, upload some problems, and it will start
-          nagging you.
+        <p className="text-sm text-muted-foreground">
+          Nothing yet. Create a roadmap, upload some problems, and it will
+          start nagging you.
         </p>
       ) : (
-        <ul style={{ listStyle: 'none', padding: 0, display: 'grid', gap: 12 }}>
-          {roadmaps.map((roadmap) => (
-            <li key={roadmap.id} className="lk-card">
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'baseline',
-                  gap: 12,
-                  flexWrap: 'wrap',
-                }}
-              >
-                <Link href={`/roadmaps/${roadmap.id}`} style={{ fontSize: '1.15rem' }}>
-                  {roadmap.name}
-                </Link>
-                <span className="lk-label">{roadmap.status}</span>
-              </div>
-              <p className="lk-label" style={{ marginTop: 6 }}>
-                {roadmap.startDate} → {roadmap.endDate} · {roadmap.sendTimeLocal}{' '}
-                {roadmap.timezone}
-              </p>
-              <form action={setStatusAction}>
-                <input type="hidden" name="roadmapId" value={roadmap.id} />
-                <input
-                  type="hidden"
-                  name="status"
-                  value={roadmap.status === 'ARCHIVED' ? 'ACTIVE' : 'ARCHIVED'}
-                />
-                <SubmitButton
-                  pendingLabel={roadmap.status === 'ARCHIVED' ? 'Unarchiving' : 'Archiving'}
-                >
-                  {roadmap.status === 'ARCHIVED' ? 'Unarchive' : 'Archive'}
-                </SubmitButton>
-              </form>
-            </li>
-          ))}
-        </ul>
+        <StatusFilter roadmaps={roadmaps} />
       )}
 
-      <hr />
-
-      <h3>New roadmap</h3>
-      <form action={createRoadmapAction} style={{ display: 'grid', gap: 14, maxWidth: 420 }}>
-        <label>
-          <span className="lk-label">Name</span>
-          <input className="lk-input" name="name" required placeholder="Blind 75" />
-        </label>
-        <label>
-          <span className="lk-label">Start date</span>
-          <input className="lk-input" type="date" name="startDate" required />
-        </label>
-        <label>
-          <span className="lk-label">End date</span>
-          <input className="lk-input" type="date" name="endDate" required />
-        </label>
-        <label>
-          <span className="lk-label">Daily send time</span>
-          <input className="lk-input" type="time" name="sendTimeLocal" required defaultValue="07:00" />
-        </label>
-        <TimezoneField />
-        <SubmitButton className="lk-btn lk-btn-primary" pendingLabel="Creating">
-          Create
-        </SubmitButton>
-      </form>
-    </main>
+      <Card className="max-w-md">
+        <CardHeader>
+          <CardTitle className="text-lg">New roadmap</CardTitle>
+          <CardDescription>Name it, time-box it, pick a send time.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form action={createRoadmapAction} className="grid gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="name">Name</Label>
+              <Input id="name" name="name" required placeholder="Blind 75" />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="startDate">Start date</Label>
+              <Input id="startDate" type="date" name="startDate" required />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="endDate">End date</Label>
+              <Input id="endDate" type="date" name="endDate" required />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="sendTimeLocal">Daily send time</Label>
+              <Input
+                id="sendTimeLocal"
+                type="time"
+                name="sendTimeLocal"
+                required
+                defaultValue="07:00"
+              />
+            </div>
+            <TimezoneField />
+            <SubmitButton pendingLabel="Creating" className="justify-self-start">
+              Create
+            </SubmitButton>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
   );
 }

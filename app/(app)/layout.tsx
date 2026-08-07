@@ -1,4 +1,5 @@
 import '@/styles/product.css';
+import { AppShell } from '@/components/app-shell';
 
 /**
  * Exists only to put the product layer in this route group's CSS bundle.
@@ -12,5 +13,5 @@ import '@/styles/product.css';
 export default function ProductLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  return children;
+  return <AppShell>{children}</AppShell>;
 }
