@@ -1,15 +1,30 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { AlertCircle, ArrowLeft } from 'lucide-react';
 import { requireUserId } from '@/http/session';
 import { getProgressFor, listItemsWithCompletionFor } from '@/usecases/progress';
 import { getRoadmapFor } from '@/usecases/roadmaps';
 import {
-  markCompleteAction,
   sendNowAction,
   updateDatesAction,
   uploadCsvAction,
 } from '../../actions';
 import { SubmitButton } from '../../../submit-button';
+import { ProblemList } from './problem-list';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Progress } from '@/components/ui/progress';
+import { Separator } from '@/components/ui/separator';
+import { Textarea } from '@/components/ui/textarea';
 
 export default async function RoadmapDetailPage({
   params,
@@ -35,141 +50,126 @@ export default async function RoadmapDetailPage({
       : 0;
 
   return (
-    <main className="lk-container" style={{ paddingBlock: 40, maxWidth: 760 }}>
-      <Link href="/roadmaps" className="lk-label">
-        ← All roadmaps
-      </Link>
-      <h2 style={{ marginTop: 12 }}>{roadmap.name}</h2>
-      <p className="lk-label">
-        {roadmap.status} · {roadmap.startDate} → {roadmap.endDate} ·{' '}
-        {roadmap.sendTimeLocal} {roadmap.timezone}
-      </p>
+    <div className="mx-auto grid max-w-3xl gap-8 px-6 py-10">
+      <div>
+        <Link
+          href="/roadmaps"
+          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="size-3.5" />
+          All roadmaps
+        </Link>
+        <div className="mt-2 flex flex-wrap items-center gap-3">
+          <h1 className="text-2xl font-semibold tracking-tight">{roadmap.name}</h1>
+          <Badge variant={roadmap.status === 'ARCHIVED' ? 'secondary' : 'default'}>
+            {roadmap.status}
+          </Badge>
+        </div>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {roadmap.startDate} → {roadmap.endDate} · {roadmap.sendTimeLocal}{' '}
+          {roadmap.timezone}
+        </p>
+      </div>
 
       {error ? (
-        <p role="alert" className="lk-card" style={{ fontWeight: 'bold' }}>
-          {error}
-        </p>
+        <Alert variant="destructive">
+          <AlertCircle className="size-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       ) : null}
       {sweep ? (
-        <p className="lk-card">
-          <span className="lk-label">Sweep result</span>
-          <br />
-          {sweep}
-        </p>
+        <Alert>
+          <AlertDescription>
+            <span className="font-medium">Sweep result:</span> {sweep}
+          </AlertDescription>
+        </Alert>
       ) : null}
-
-      <hr />
 
       {progress ? (
-        <section>
-          <h3>Progress</h3>
-          <p>
-            {progress.completedCount} of {progress.totalCount} solved · day{' '}
-            {progress.daysElapsed} of {progress.totalDays}
-          </p>
-          <div className="lk-progress">
-            <div
-              className="lk-progress-fill"
-              style={{ ['--bar-pct' as string]: `${percent}%` }}
-            />
-          </div>
-        </section>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Progress</CardTitle>
+            <CardDescription>
+              {progress.completedCount} of {progress.totalCount} solved · day{' '}
+              {progress.daysElapsed} of {progress.totalDays}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Progress value={percent} />
+          </CardContent>
+        </Card>
       ) : null}
 
-      <hr />
-
-      <section>
-        <h3>Problems</h3>
-        {items === null || items.length === 0 ? (
-          <p style={{ color: 'var(--ink-soft)' }}>
-            No problems yet. Paste some CSV below.
-          </p>
-        ) : (
-          <ul style={{ listStyle: 'none', padding: 0, display: 'grid', gap: 8 }}>
-            {items.map((item) => (
-              <li
-                key={item.id}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 12,
-                  borderLeft: `3px solid var(--difficulty-${item.difficulty.toLowerCase()})`,
-                  paddingLeft: 12,
-                }}
-              >
-                <span
-                  className={`lk-dot ${item.completed ? 'lk-dot-done' : 'lk-dot-pending'}`}
-                  aria-hidden
-                />
-                <span style={{ flex: 1 }}>
-                  <a href={item.url} target="_blank" rel="noreferrer">
-                    {item.title}
-                  </a>
-                  <span className="lk-label" style={{ display: 'block' }}>
-                    #{item.position} · {item.difficulty}
-                  </span>
-                </span>
-                {item.completed ? (
-                  <span className="lk-label">Done</span>
-                ) : (
-                  <form action={markCompleteAction}>
-                    <input type="hidden" name="roadmapId" value={roadmap.id} />
-                    <input type="hidden" name="itemId" value={item.id} />
-                    <SubmitButton pendingLabel="Saving">Mark solved</SubmitButton>
-                  </form>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
+      <section className="grid gap-4">
+        <h2 className="text-lg font-semibold tracking-tight">Problems</h2>
+        <ProblemList roadmapId={roadmap.id} items={items ?? []} />
       </section>
 
-      <hr />
+      <Separator />
 
-      <section>
-        <h3>Upload problems</h3>
-        <p className="lk-label">title,url,difficulty — one per line. Header optional.</p>
-        <form action={uploadCsvAction} style={{ display: 'grid', gap: 12 }}>
+      <section className="grid gap-4">
+        <div>
+          <h2 className="text-lg font-semibold tracking-tight">Upload problems</h2>
+          <p className="text-sm text-muted-foreground">
+            title,url,difficulty — one per line. Header optional.
+          </p>
+        </div>
+        <form action={uploadCsvAction} className="grid gap-3">
           <input type="hidden" name="roadmapId" value={roadmap.id} />
-          <textarea
-            className="lk-input"
+          <Textarea
             name="csv"
             rows={6}
             required
             defaultValue={'Two Sum,https://leetcode.com/problems/two-sum,EASY'}
           />
-          <SubmitButton
-            className="lk-btn lk-btn-primary"
-            pendingLabel="Appending"
-            style={{ justifySelf: 'start' }}
-          >
+          <SubmitButton pendingLabel="Appending" className="justify-self-start">
             Append
           </SubmitButton>
         </form>
       </section>
 
-      <hr />
+      <Separator />
 
-      <section>
-        <h3>Reschedule</h3>
-        <p className="lk-label">
-          Nothing is precomputed, so changing these changes tomorrow&apos;s email.
-        </p>
-        <form action={updateDatesAction} style={{ display: 'grid', gap: 12, maxWidth: 420 }}>
+      <section className="grid gap-4">
+        <div>
+          <h2 className="text-lg font-semibold tracking-tight">Reschedule</h2>
+          <p className="text-sm text-muted-foreground">
+            Nothing is precomputed, so changing these changes tomorrow&apos;s email.
+          </p>
+        </div>
+        <form action={updateDatesAction} className="grid max-w-sm gap-4">
           <input type="hidden" name="roadmapId" value={roadmap.id} />
-          <label>
-            <span className="lk-label">Start date</span>
-            <input className="lk-input" type="date" name="startDate" defaultValue={roadmap.startDate} required />
-          </label>
-          <label>
-            <span className="lk-label">End date</span>
-            <input className="lk-input" type="date" name="endDate" defaultValue={roadmap.endDate} required />
-          </label>
-          <label>
-            <span className="lk-label">Daily send time</span>
-            <input className="lk-input" type="time" name="sendTimeLocal" defaultValue={roadmap.sendTimeLocal} required />
-          </label>
-          <SubmitButton pendingLabel="Saving" style={{ justifySelf: 'start' }}>
+          <div className="grid gap-2">
+            <Label htmlFor="startDate">Start date</Label>
+            <Input
+              id="startDate"
+              type="date"
+              name="startDate"
+              defaultValue={roadmap.startDate}
+              required
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="endDate">End date</Label>
+            <Input
+              id="endDate"
+              type="date"
+              name="endDate"
+              defaultValue={roadmap.endDate}
+              required
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="sendTimeLocal">Daily send time</Label>
+            <Input
+              id="sendTimeLocal"
+              type="time"
+              name="sendTimeLocal"
+              defaultValue={roadmap.sendTimeLocal}
+              required
+            />
+          </div>
+          <SubmitButton pendingLabel="Saving" className="justify-self-start">
             Save
           </SubmitButton>
         </form>
@@ -177,21 +177,26 @@ export default async function RoadmapDetailPage({
 
       {process.env.NODE_ENV === 'production' ? null : (
         <>
-          <hr />
-          <section>
-            <h3>Send now</h3>
-            <p className="lk-label">
-              Development only. Runs the real sweep over{' '}
-              <strong>every active roadmap</strong>, not just this one, including
-              the send log — so a second press does nothing until tomorrow.
-            </p>
+          <Separator />
+          <section className="grid gap-4">
+            <div>
+              <h2 className="text-lg font-semibold tracking-tight">Send now</h2>
+              <p className="text-sm text-muted-foreground">
+                Development only. Runs the real sweep over{' '}
+                <strong>every active roadmap</strong>, not just this one,
+                including the send log — so a second press does nothing
+                until tomorrow.
+              </p>
+            </div>
             <form action={sendNowAction}>
               <input type="hidden" name="roadmapId" value={roadmap.id} />
-              <SubmitButton pendingLabel="Sweeping">Run sweep</SubmitButton>
+              <SubmitButton pendingLabel="Sweeping" variant="outline">
+                Run sweep
+              </SubmitButton>
             </form>
           </section>
         </>
       )}
-    </main>
+    </div>
   );
 }

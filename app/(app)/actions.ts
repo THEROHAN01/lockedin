@@ -84,6 +84,23 @@ export async function markCompleteAction(formData: FormData): Promise<void> {
   redirect(`/roadmaps/${roadmapId}`);
 }
 
+export async function markCompleteInPlace(
+  roadmapId: string,
+  itemId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  'use server';
+  const userId = await requireUserId();
+
+  try {
+    await markComplete(userId, roadmapId, itemId);
+  } catch (error) {
+    return { ok: false, error: reasonFor(error) };
+  }
+
+  revalidatePath(`/roadmaps/${roadmapId}`);
+  return { ok: true };
+}
+
 export async function updateDatesAction(formData: FormData): Promise<void> {
   const userId = await requireUserId();
   const roadmapId = String(formData.get('roadmapId') ?? '');
