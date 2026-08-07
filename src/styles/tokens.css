@@ -52,8 +52,8 @@
  * Contrast against --bg #fafafa:
  *   --ink    #18181b  21.00:1  AAA
  *   --accent #253900  10.70:1  AAA
- * --accent-vivid (#08cb00) achieves the same ratio and is therefore safe for
- * text in this theme, but fills, borders and dots also work.
+ * --accent-vivid (#08cb00) is not text-safe on this background and is
+ * therefore NEVER used for text in this theme — fills, borders and dots only.
  */
 :root,
 :root[data-theme='light'] {
@@ -68,7 +68,8 @@
  * Contrast against --bg #09090b:
  *   --ink    #f4f4f5  18.10:1  AAA
  *   --accent #08cb00   9.65:1  AAA
- * The vivid green is text-safe and is therefore safe for general use.
+ * The vivid green IS text-safe on this background (9.65:1 AAA), so --accent
+ * and --accent-vivid are the same color in dark mode.
  */
 :root[data-theme='dark'] {
   color-scheme: dark;
@@ -79,8 +80,9 @@
 }
 
 /* ─── Role tokens ───────────────────────────────────────────────────────────
- * --accent-vivid is the same in both themes on purpose: it is the brand green,
- * and it is a proper accent color that works in text (especially in dark mode).
+ * --accent-vivid is the same in both themes on purpose: it is the brand green.
+ * In light theme it is NEVER used for text (fails contrast). In dark theme it
+ * is text-safe, so --accent and --accent-vivid are the same value.
  */
 :root {
   --accent-vivid: var(--lk-green);
