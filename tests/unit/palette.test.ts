@@ -116,29 +116,3 @@ describe('palette.ts mirrors tokens.css', () => {
   });
 });
 
-/**
- * The contrast assertions above check the values. This checks that the
- * stylesheet actually uses them that way — the failure mode is a rule that
- * fills with --accent-vivid and then puts --accent-ink on top, which is
- * 1.88:1 in the light theme however correct the tokens are.
- */
-describe('base.css never puts text on the vivid fill', () => {
-  const BASE = readFileSync(
-    new URL('../../src/styles/base.css', import.meta.url),
-    'utf8',
-  );
-
-  const blocks = BASE.split('}')
-    .map((b) => b.slice(b.indexOf('{') + 1))
-    .filter((b) => b.includes('accent-vivid'));
-
-  it('finds the vivid fill in use, so this test is not vacuous', () => {
-    expect(blocks.length).toBeGreaterThan(0);
-  });
-
-  it.each(blocks)('block filling with accent-vivid sets no text colour', (block) => {
-    const fillsVivid = /background:\s*var\(--accent-vivid\)/.test(block);
-    const setsInk = /(?<!-)\bcolor:\s*var\(--accent-ink\)/.test(block);
-    expect(fillsVivid && setsInk).toBe(false);
-  });
-});

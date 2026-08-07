@@ -1,7 +1,7 @@
-import '@/styles/base.css';
+import '@/styles/product.css';
 
 /**
- * Same purpose as app/(app)/layout.tsx: scope the blueprint layer to the
+ * Same purpose as app/(app)/layout.tsx: scope the product layer to the
  * product routes so it stays out of the /docs CSS bundle.
  */
 export default function AuthLayout({
