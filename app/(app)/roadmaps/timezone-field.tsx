@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 /**
  * Fills the timezone from the browser, because a send time with no zone is
@@ -17,15 +19,15 @@ export function TimezoneField() {
   }, []);
 
   return (
-    <label>
-      <span className="lk-label">Time zone</span>
-      <input
-        className="lk-input"
+    <div className="grid gap-2">
+      <Label htmlFor="timezone">Time zone</Label>
+      <Input
+        id="timezone"
         name="timezone"
         value={zone}
         onChange={(event) => setZone(event.target.value)}
         required
       />
-    </label>
+    </div>
   );
 }

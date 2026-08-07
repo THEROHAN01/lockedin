@@ -1,4 +1,4 @@
-import { ThemeToggle } from '../../theme-toggle';
+import { ThemeToggle } from '@/components/theme-toggle';
 
 /**
  * Token preview. A development aid, not a product screen: it exists so the design

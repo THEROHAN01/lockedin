@@ -1,15 +1,14 @@
 import type { Metadata } from 'next';
-import { JetBrains_Mono, Source_Serif_4, VT323 } from 'next/font/google';
+import { Geist, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
 
-const display = VT323({
-  weight: '400',
+const display = Geist({
   subsets: ['latin'],
   variable: '--font-display-src',
   display: 'swap',
 });
 
-const body = Source_Serif_4({
+const body = Geist({
   subsets: ['latin'],
   variable: '--font-body-src',
   display: 'swap',

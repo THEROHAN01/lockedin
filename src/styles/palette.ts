@@ -1,5 +1,5 @@
 /*
- * The four palette values again, as TypeScript.
+ * The light-theme palette values as TypeScript.
  *
  * This is the second and last file allowed to contain a hex literal (see
  * scripts/check-tokens.sh). It exists because email clients support neither
@@ -13,16 +13,15 @@
 export const PALETTE = {
   green: '#08cb00',
   olive: '#253900',
-  black: '#000000',
-  paper: '#eeeeee',
+  black: '#18181b',
+  paper: '#fafafa',
 } as const;
 
 /**
  * Email roles, mirroring the light theme in tokens.css.
  *
- * `green` is 1.88:1 on `paper` and is therefore never text — only borders and
- * fills. Secondary text uses `olive` rather than a grey, so the email needs no
- * fifth colour.
+ * This uses the same light-theme pairing as the app: gray-900 on gray-50.
+ * The vivid green and olive remain unchanged for secondary text/accents.
  */
 export const EMAIL = {
   background: PALETTE.paper,
