@@ -665,6 +665,10 @@ Postgres as a service container, so the checks need no credentials and run on a 
 
 ```
 docs/                         ROADMAP, DECISIONS (ADRs), ARCHITECTURE
+content/docs/                 the published docs site; engineering/ mirrors the above
+specs/                        per-change specs, written before implementation
+CONTRIBUTING.md               the commit convention; .gitmessage templates it
+Dockerfile                    self-hosted image; .dockerignore guards the context
 prisma/schema.prisma
 scripts/check-tokens.sh
 src/
@@ -695,17 +699,26 @@ src/
     quote.ts                  resolveDailyQuote — AiProvider, falls back to quoteForDate
     roadmaps.ts
     progress.ts
+  http/                       request plumbing shared by every route handler
+    openapi.ts                the OpenAPI document; §7 is its prose form
+  components/                 app shell, theme toggle, ui/ primitives
+  lib/utils.ts
   emails/DailyDigest.tsx      React Email template
   styles/tokens.css           the ONLY file with hex literals
+  styles/palette.ts           the same four values for email, which cannot
+                              use var() or color-mix() (ADR-010)
+  errors.ts                   the one error envelope (§7)
   auth.ts                     Better Auth config
 app/
   api/auth/[...all]/route.ts
   api/roadmaps/...
   api/cron/send-daily/route.ts
-  (app)/                      roadmaps, roadmaps/[id] — and a dev-only
-                              session-authenticated "run sweep" action
+  (app)/                      roadmaps, roadmaps/new, roadmaps/[id] — and a
+                              dev-only session-authenticated "run sweep" action
   (auth)/                     sign-in, sign-up
-  (app)/                      roadmaps, roadmaps/new, roadmaps/[id]
+  (marketing)/                the landing page
+  docs/                       Fumadocs, rendering content/docs
+  api-docs/                   Swagger UI over /api/openapi.json
 tests/
   unit/                       domain — no DB, no network
   integration/                repositories, API, cron — real Postgres
